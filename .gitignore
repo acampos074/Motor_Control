@@ -1,0 +1,23 @@
+# STM32CubeIDE / Eclipse metadata
+.metadata/
+.cproject
+.project
+.settings/
+
+# Build output
+Debug/
+Release/
+build/
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+
+# Archives
+*.zip
+
+# Old/scratch files
+old_calibration_code.txt
