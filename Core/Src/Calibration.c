@@ -18,6 +18,7 @@
 #include "DRV.h"
 #include "FOC_Math.h"
 #include "Calibration.h"
+#include "DebugLog.h"
 
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
@@ -57,7 +58,7 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 			int count_ref = cal->theta_mech_ref*(float)ENC_COUNTS/(TWO_PI*NPP); // theta elec [counts/rads]
 			int error = foc->theta_mech_raw - count_ref; // encoder error
 			cal->error_arr[cal->sample_count] = error + ENC_COUNTS*(error<0);
-			printf("%.3f %d %d %d %.3f\r\n", cal->time,cal->sample_count, count_ref, cal->error_arr[cal->sample_count], cal->theta_mech_ref);
+			dbg_log("%.3f %d %d %d %.3f\r\n", cal->time,cal->sample_count, count_ref, cal->error_arr[cal->sample_count], cal->theta_mech_ref);
 			/*
 			int theta_mech_ref_int = float_to_uint(cal->theta_mech_ref,-TWO_PI,TWO_PI);
 			CANTxData[0] = 0;    // get 8 MSB
@@ -96,7 +97,7 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 			error += ENC_COUNTS*(error<0);
 
 			cal->error_arr[cal->sample_count] = (cal->error_arr[cal->sample_count] + error)/2; // takes the average of forward vs backwards
-			printf("%.3f %d %d %d %.3f\r\n", cal->time,cal->sample_count, count_ref, cal->error_arr[cal->sample_count], cal->theta_mech_ref);
+			dbg_log("%.3f %d %d %d %.3f\r\n", cal->time,cal->sample_count, count_ref, cal->error_arr[cal->sample_count], cal->theta_mech_ref);
 			/*
 			int theta_mech_ref_int = float_to_uint(cal->theta_mech_ref,-TWO_PI,TWO_PI);
 			CANTxData[0] = 0;    // get 8 MSB
@@ -133,15 +134,15 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 		//HES_ReadSensorDMA(hes); // !!!!!!!!!!!!!!!!!!! ADDED THIS LINE TO TEST DMA
 		sample_HES(foc,cal,hes);
 		theta_mech_mean += foc->theta_mech_raw;
-		printf("theta_mech_raw: %d cnts\r\n",foc->theta_mech_raw);
-		printf("vd: %f V\r\n",foc->pi.vd_cmd);
+		dbg_log("theta_mech_raw: %d cnts\r\n",foc->theta_mech_raw);
+		dbg_log("vd: %f V\r\n",foc->pi.vd_cmd);
 	}
 	foc->mech_offset = theta_mech_mean/n;
 	set_zero_DC();
-	printf("mech_offset: %d cnts\r\n",foc->mech_offset);
+	dbg_log("mech_offset: %d cnts\r\n",foc->mech_offset);
 
 	// === Generate LUT ===
-	printf("\r === LUT === \r\n");
+	dbg_log("\r === LUT === \r\n");
 	int window = SAMPLES_PER_PPAIR;
 	int lut_offset = (ENC_COUNTS-cal->error_arr[0])*N_LUT/ENC_COUNTS;
 	for(int i = 0; i<N_LUT; i++)
@@ -167,7 +168,7 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 			lut_index -= N_LUT;
 		}
 		cal->lut_arr[lut_index] = moving_avg - foc->elec_offset;
-		printf("%d  %d\r\n", lut_index, moving_avg - foc->elec_offset);
+		dbg_log("%d  %d\r\n", lut_index, moving_avg - foc->elec_offset);
 
 	}
 
@@ -176,8 +177,7 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 	cal->started = 0;
 	cal->time = 0;
 	cal->loop_count = 0;
-  	printf("theta_elec_offset: %d cnts",foc->elec_offset);
-  	printf("\r\n");
+  	dbg_log("theta_elec_offset: %d cnts\r\n",foc->elec_offset);
 
 	//int theta_mech_ref_int = float_to_uint(cal->theta_mech_ref,-TWO_PI,TWO_PI);
 	//CANTxData[0] = 1;    // get 8 MSB
@@ -218,7 +218,7 @@ void open_loop_test(foc_t *foc,calibration_t *cal,float loop_count)
 			cal->error_arr[cal->sample_count] = error + ENC_COUNTS*(error<0);
 			//printf("%.3f %d %d %d %.3f\r\n", cal->time,cal->sample_count, count_ref, cal->error_arr[cal->sample_count], cal->theta_mech_ref);
 			//printf("%d %.3f %.3f\r\n",cal->sample_count,foc->theta_mech,foc->theta_elec);
-			printf("%d m:%.3f e:%.3f ia:%.3f ib:%.3f ic:%.3f u:%.3f v:%.3f w:%.3f id:%.3f iq:%.3f\r\n",cal->sample_count,foc->theta_mech,foc->theta_elec,foc->i_a,foc->i_b,foc->i_c,foc->v_u,foc->v_v,foc->v_w,foc->i_d,foc->i_q);
+			dbg_log("%d m:%.3f e:%.3f ia:%.3f ib:%.3f ic:%.3f u:%.3f v:%.3f w:%.3f id:%.3f iq:%.3f\r\n",cal->sample_count,foc->theta_mech,foc->theta_elec,foc->i_a,foc->i_b,foc->i_c,foc->v_u,foc->v_v,foc->v_w,foc->i_d,foc->i_q);
 			cal->next_sample_time += TWO_PI/(W_CAL*SAMPLES_PER_PPAIR);
 			if(cal->sample_count == NPP*SAMPLES_PER_PPAIR-1) // 896 sample points
 			{
@@ -248,7 +248,7 @@ void open_loop_test(foc_t *foc,calibration_t *cal,float loop_count)
 			cal->error_arr[cal->sample_count] = (cal->error_arr[cal->sample_count] + error)/2; // takes the average of forward vs backwards
 			//printf("%.3f %d %d %d %.3f\r\n", cal->time,cal->sample_count, count_ref, cal->error_arr[cal->sample_count], cal->theta_mech_ref);
 			//printf("%d m:%.3f e:%.3f ia:%.3f ib:%.3f ic:%.3f u:%.3f v:%.3f w:%.3f\r\n",cal->sample_count,foc->theta_mech,foc->theta_elec,foc->i_a,foc->i_b,foc->i_c,foc->v_u,foc->v_v,foc->v_w);
-			printf("%d m:%.3f e:%.3f ia:%.3f ib:%.3f ic:%.3f u:%.3f v:%.3f w:%.3f id:%.3f iq:%.3f\r\n",cal->sample_count,foc->theta_mech,foc->theta_elec,foc->i_a,foc->i_b,foc->i_c,foc->v_u,foc->v_v,foc->v_w,foc->i_d,foc->i_q);
+			dbg_log("%d m:%.3f e:%.3f ia:%.3f ib:%.3f ic:%.3f u:%.3f v:%.3f w:%.3f id:%.3f iq:%.3f\r\n",cal->sample_count,foc->theta_mech,foc->theta_elec,foc->i_a,foc->i_b,foc->i_c,foc->v_u,foc->v_v,foc->v_w,foc->i_d,foc->i_q);
 			cal->next_sample_time += TWO_PI/(W_CAL*SAMPLES_PER_PPAIR);
 			cal->sample_count--; // revolution counter keeps decreasing until it's less than 0
 			//sample_HES(foc,cal);

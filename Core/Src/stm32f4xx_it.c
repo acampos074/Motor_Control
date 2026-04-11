@@ -27,6 +27,7 @@
 #include "HES.h"
 #include "FOC.h"
 #include "Calibration.h"
+#include "DebugLog.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -373,7 +374,7 @@ void TIM1_UP_TIM10_IRQHandler(void)
 				cal.loop_count = 0;
 				set_zero_DC();
 			}
-			printf("ia:%.3f ib:%.3f ic:%.3f u:%.3f v:%.3f w:%.3f id:%.3f iq:%.3f\r\n",
+			dbg_log("ia:%.3f ib:%.3f ic:%.3f u:%.3f v:%.3f w:%.3f id:%.3f iq:%.3f\r\n",
 				foc.i_a, foc.i_b, foc.i_c, foc.v_u, foc.v_v, foc.v_w, foc.i_d, foc.i_q);
 			break;
 
@@ -416,6 +417,7 @@ bool _HW_Process_Pending_Ints( void )
       ES_Timer_Tick_Resp();
       TickCount--;
    }
+   dbg_flush(); /* drain debug ring buffer — safe here, this runs in main context */
    return true; // always return true to allow loop test in ES_Run to proceed
 }
 /* USER CODE END 1 */
