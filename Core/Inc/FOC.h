@@ -193,7 +193,7 @@ typedef struct {
 	int int_angle;
 	SPI_HandleTypeDef *spiHandle;
 	uint8_t HES_RxBuf[2];
-	double counter;
+	float counter;
 
 } hes_t;
 

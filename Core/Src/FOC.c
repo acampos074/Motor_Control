@@ -305,10 +305,10 @@ void torque_control(foc_t *foc)
 {
 	// PD control
 	// PD position control
-	static double time = 0;
-	//double GearRatio = 12.0; // just for troubleshooting
+	static float time = 0;
+	//float GearRatio = 12.0f; // just for troubleshooting
 
-	time = time+1/1000.0; // since sampling frequency is 1kHz
+	time = time + 0.001f; // since sampling frequency is 1kHz
 	// foc->theta_mech_multiturn[0]
 	float torque_cmd;
 	if(foc->pos_control_flag == 1)
