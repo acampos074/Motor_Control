@@ -252,58 +252,6 @@ void commutate(foc_t *foc,float theta_elec)
 
 }
 
-void commutate_v2(foc_t *foc,float theta_elec)
-{
-
-    foc->v_max = OVERMODULATION*foc->VM*(DC_MAX-DC_MIN)*SQRT1_3;
-	//foc->v_max = V_BUS;
-    foc->i_max = I_MAX;
-
-	// 1. === DQ0 Transform ===
-    //foc->pi.iq_dot = foc->i_q;
-    dq0(foc->theta_elec,foc->i_a,foc->i_b,foc->i_c,&foc->i_d,&foc->i_q);
-    //foc->pi.iq_dot = (foc->i_q-foc->pi.iq_dot)*ONE_OVER_DT;
-
-	// 2. === PI current controller ===
-	float id_error = foc->pi.id_ref - foc->i_d;
-	float iq_error = foc->pi.iq_ref - foc->i_q;
-
-	foc->pi.vd_cmd = pdGain*id_error + foc->pi.Sum_id_error;
-	foc->pi.vd_cmd = fmaxf(fminf(foc->pi.vd_cmd, foc->v_max), -foc->v_max);
-	float vq_max = sqrtf(foc->v_max*foc->v_max - foc->pi.vd_cmd*foc->pi.vd_cmd);
-
-	foc->pi.vq_cmd = pqGain*iq_error + foc->pi.Sum_iq_error;
-	foc->pi.vq_cmd = fmaxf(fminf(foc->pi.vq_cmd, vq_max), -vq_max);
-
-	foc->pi.Sum_id_error += pdGain*idGain*id_error;
-	foc->pi.Sum_id_error = fmaxf(fminf(foc->pi.Sum_id_error, foc->v_max), -foc->v_max); // saturate integrator
-
-	foc->pi.Sum_iq_error += pqGain*iqGain*iq_error;
-	foc->pi.Sum_iq_error = fmaxf(fminf(foc->pi.Sum_iq_error, foc->v_max), -foc->v_max); // saturate integrator
-
-	// 3. === Limit the voltage commands to not overmodulate ===
-	float cmd_mag = sqrtf(foc->pi.vq_cmd*foc->pi.vq_cmd + foc->pi.vd_cmd*foc->pi.vd_cmd); // take the L2 norm
-	if(cmd_mag > V_BUS){
-		foc->pi.vd_cmd = foc->pi.vd_cmd*(V_BUS/cmd_mag);
-		foc->pi.vq_cmd = foc->pi.vq_cmd*(V_BUS/cmd_mag);
-	}
-
-	// 4. === Inverse DQ0 Transform ===
-	uvw(foc->theta_elec,foc->pi.vd_cmd,foc->pi.vq_cmd,&foc->v_u,&foc->v_v,&foc->v_w);
-
-	// 5. === SVM ===
-	svm(foc->v_u,foc->v_v,foc->v_w,&foc->dc_u,&foc->dc_v,&foc->dc_w);
-
-	// 6. === Set DC ===
-	// === 321 === (rotates CW)
-	//set_duty_cycle(foc->phase_order_flag,foc->dc_u,foc->dc_v,foc->dc_w);
-
-	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t)((foc->theta_dot_mech*4095)/50.0f));
-	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, foc->pi.adc2_ia_raw);
-	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, foc->pi.adc1_ib_raw);
-
-}
-
 void torque_control(foc_t *foc)
 {
 	// PD control

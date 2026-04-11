@@ -234,7 +234,6 @@ typedef struct {
 
 
 void commutate(foc_t *foc,float theta_elec);
-void commutate_v2(foc_t *foc,float theta_elec);
 void torque_control(foc_t *foc);
 //void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count);
 //void calibrate_HES(foc_t *foc,float theta_elec,float theta_mech);

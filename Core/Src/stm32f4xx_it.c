@@ -351,7 +351,7 @@ void TIM1_UP_TIM10_IRQHandler(void)
 				foc.torque_control_counter = 0;
 			}
 			foc.torque_control_counter++;
-			commutate_v2(&foc, foc.theta_elec);
+			commutate(&foc, foc.theta_elec);
 			break;
 
 		case MODE_CALIBRATION:
