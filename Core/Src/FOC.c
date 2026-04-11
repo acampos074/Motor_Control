@@ -207,11 +207,19 @@ void commutate(foc_t *foc,float theta_elec)
 		foc->pi.vq_cmd = fmaxf(fminf(foc->pi.vq_cmd, vq_max), -vq_max);
 	}
 
-	foc->pi.Sum_id_error += pdGain*idGain*id_error;
-	foc->pi.Sum_id_error = fmaxf(fminf(foc->pi.Sum_id_error, foc->v_max), -foc->v_max); // saturate integrator
+	// Only accumulate integrators when the PI output is actually driving the plant.
+	// In open-loop modes (CALIBRATION, OPEN_LOOP_TEST, SYSTEM_ID, VOLTAGE_FOC) the
+	// voltage commands are set directly, so integrating the current error would cause
+	// wind-up that produces a current spike on the next transition to closed-loop control.
+	if(foc->mode == MODE_CURRENT  || foc->mode == MODE_SPEED ||
+	   foc->mode == MODE_POSITION || foc->mode == MODE_TORQUE)
+	{
+		foc->pi.Sum_id_error += pdGain*idGain*id_error;
+		foc->pi.Sum_id_error = fmaxf(fminf(foc->pi.Sum_id_error, foc->v_max), -foc->v_max); // saturate integrator
 
-	foc->pi.Sum_iq_error += pqGain*iqGain*iq_error;
-	foc->pi.Sum_iq_error = fmaxf(fminf(foc->pi.Sum_iq_error, foc->v_max), -foc->v_max); // saturate integrator
+		foc->pi.Sum_iq_error += pqGain*iqGain*iq_error;
+		foc->pi.Sum_iq_error = fmaxf(fminf(foc->pi.Sum_iq_error, foc->v_max), -foc->v_max); // saturate integrator
+	}
 
 	// 5. === Limit the voltage commands to not overmodulate ===
 	float cmd_mag = sqrtf(foc->pi.vq_cmd*foc->pi.vq_cmd + foc->pi.vd_cmd*foc->pi.vd_cmd); // take the L2 norm
