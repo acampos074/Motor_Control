@@ -351,10 +351,8 @@ void TIM1_UP_TIM10_IRQHandler(void)
 		//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 4095);
 
 				// Uncomment for local torque controller
-				//if(foc.torque_control_counter > 29)  // use 29 if using 29khz sampling freq
-				//if(foc.torque_control_counter > 25)  // use 25 if using 25khz sampling freq
-		        //if(foc.torque_control_counter > 33)  // use 33 if using 33khz sampling freq
-		        if(foc.torque_control_counter > 40)  // use 40 if using 40khz sampling freq changed from 33 to 40khz on 10/11/23. It worked well before
+		        // TORQUE_DIVIDER = F_PWM / TORQUE_LOOP_HZ — updates automatically when F_PWM changes
+		        if(foc.torque_control_counter > TORQUE_DIVIDER)
 				//if(foc.torque_control_counter > 25 && foc.torque_control_counter_total < 25*100)
 				{
 					torque_control(&foc); // **** ==== Uncomment to implement torque control within the MCU ==== ****

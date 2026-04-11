@@ -46,7 +46,17 @@
 //#define idGain 0.019161f
 
  // Current control BW of 125Hz at 40kHz sampling
-#define Fs 0x08C9 // FOC Sampling Frequency 40kHz
+// --- Timing: change F_PWM here and Fs/DT/ONE_OVER_DT update automatically ---
+#define F_CLK           180000000UL             // System clock Hz (180 MHz)
+#define F_PWM           40000UL                 // PWM / FOC loop frequency Hz
+#define Fs              ((F_CLK / (2 * F_PWM)) - 1) // TIM1 ARR for center-aligned PWM (= 0x08C9 = 2249 at 40kHz)
+#define DT              (1.0f / (float)F_PWM)   // FOC sample period (s)
+#define ONE_OVER_DT     ((float)F_PWM)          // 1 / DT
+
+// Outer (torque/position/speed) loop runs at TORQUE_LOOP_HZ — derived from F_PWM
+#define TORQUE_LOOP_HZ  1000U                   // 1 kHz outer loop
+#define TORQUE_DIVIDER  (F_PWM / TORQUE_LOOP_HZ) // ISR ticks per outer-loop update (= 40 at 40kHz)
+
 #define pqGain 0.44888f
 #define iqGain 0.015834f
 #define pdGain 0.44888f
@@ -100,13 +110,7 @@
 #define RADS_PER_COUNTS  0.000383495197f //
 
 // Calibration parameters
-#define DT 0.000025f // 40kHz sampling frequency
-#define ONE_OVER_DT 40000.0f
-//#define DT 0.000040f // 25kHz sampling frequency
-//#define DT 0.00003030f // 33kHz sampling frequency
-//#define DT 0.0000333f // 30kHz sampling frequency
-//#define DT 0.00003448275f // 29kHz sampling frequency
-#define W_CAL 20.0f // 10 rad/sec
+#define W_CAL 20.0f // calibration rotation speed (rad/sec)
 #define SAMPLES_PER_PPAIR 128
 #define N_CAL SAMPLES_PER_PPAIR*NPP
 #define N_LUT 128
