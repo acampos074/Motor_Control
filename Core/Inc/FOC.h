@@ -143,38 +143,61 @@ typedef enum {
     MODE_TORQUE,              // closed-loop: torque command → iq_ref (1 kHz update)
 } control_mode_t;
 
+// PI current controller state — integrators, references, voltage commands, ADC data
 typedef struct {
-	float i_a ,i_b ,i_c ;                              // ABC currents
-	float i_d ,i_q;                                    // DQ currents
-	float iq_dot;
-	float iq_ref, id_ref;
-	float Sum_iq_error, Sum_id_error;
-	float vq_cmd, vd_cmd;
-	float  v_u,v_v,v_w;
-	uint16_t adc2_ia_raw,adc1_ib_raw;                 // ABC raw currents
-	uint16_t adc1_offset, adc2_offset;
-	uint16_t theta_mech_raw;
-	uint16_t VM_raw;
-	float can_rx_torques;
-	float  VM;
-	float theta_elec,theta_mech,theta_mech_old;
-	float theta_mech_multiturn[N_POS_SAMPLES];
-	float theta_dot_mech;
-	int mech_offset,elec_offset;
-	int theta_mech_lin;
-	int turns,first_sample;
-	float thetadot_mech;
-	float dc_u,dc_v,dc_w;
-	float flag;
-	float v_max,i_max;
-	float p_des,theta_dot_mech_cmd;
-	float can_rx_dq,can_rx_q,can_rx_vq_cmd,can_rx_iq_cmd,can_rx_torque_cmd;
-	float kp,kd;
-	float GAIN;
-	control_mode_t mode;       // active control mode (replaces 8 boolean flags)
-	uint8_t phase_order_flag;  // hardware wiring: 0=normal, 1=swapped phase order
+	float    iq_ref, id_ref;              // current references [A]
+	float    Sum_iq_error, Sum_id_error;  // integrators [V]
+	float    vq_cmd, vd_cmd;             // voltage commands [V]
+	float    iq_dot;                      // current derivative (reserved for feedforward)
+	uint16_t adc2_ia_raw, adc1_ib_raw;   // raw ADC counts for phase currents
+	uint16_t adc1_offset, adc2_offset;   // current sensor zero offsets [counts]
+} pi_state_t;
+
+// CAN receive buffer — setpoints and commands from the host controller
+typedef struct {
+	float vq_cmd;       // voltage command (MODE_VOLTAGE_FOC) [V]
+	float iq_cmd;       // current command (MODE_CURRENT) [A]
+	float torque_cmd;   // torque command (MODE_TORQUE) [Nm]
+	float q;            // position setpoint (MODE_POSITION) [rad]
+	float dq;           // speed setpoint (MODE_SPEED) [rad/s]
+	float torques;      // general torque field
+} can_rx_t;
+
+typedef struct {
+	// --- Motor / sensor state ---
+	float i_a, i_b, i_c;                  // phase currents [A]
+	float i_d, i_q;                        // DQ currents [A]
+	float v_u, v_v, v_w;                  // phase voltages [V]
+	float dc_u, dc_v, dc_w;               // duty cycles [0–1]
+	float v_max, i_max;                    // voltage and current limits
+	float VM;                              // measured bus voltage [V]
+	uint16_t VM_raw;                       // raw bus voltage ADC count
+	uint16_t theta_mech_raw;              // raw encoder count [0–16383]
+	float theta_elec, theta_mech, theta_mech_old; // angles [rad]
+	float theta_mech_multiturn[N_POS_SAMPLES];    // position history for velocity
+	float theta_dot_mech;                 // angular velocity [rad/s]
+	float thetadot_mech;                  // duplicate velocity field (unused)
+	int   mech_offset, elec_offset;       // calibrated angle offsets [counts]
+	int   theta_mech_lin;                 // linearized encoder count
+	int   turns, first_sample;            // multi-turn tracking state
+	float flag;                           // reserved / debug
+
+	// --- Outer-loop setpoints & gains ---
+	float p_des, theta_dot_mech_cmd;      // position and speed setpoints [rad, rad/s]
+	float kp, kd;                         // outer-loop PD gains (CAN-tunable)
+	float GAIN;                           // setpoint scaling factor
+
+	// --- Sub-modules ---
+	pi_state_t   pi;      // PI current controller state
+	can_rx_t     can_rx;  // CAN receive buffer
+
+	// --- Control bookkeeping ---
+	control_mode_t mode;          // active control mode
+	uint8_t phase_order_flag;     // hardware: 0=normal, 1=swapped phase order
 	uint8_t torque_control_counter;
 	uint32_t torque_control_counter_total;
+
+	// TODO: hes_t belongs in HES.h — move when header dependency is resolved
 
 } foc_t;
 

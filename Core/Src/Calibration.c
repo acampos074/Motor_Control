@@ -134,7 +134,7 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 		sample_HES(foc,cal,hes);
 		theta_mech_mean += foc->theta_mech_raw;
 		printf("theta_mech_raw: %d cnts\r\n",foc->theta_mech_raw);
-		printf("vd: %f V\r\n",foc->vd_cmd);
+		printf("vd: %f V\r\n",foc->pi.vd_cmd);
 	}
 	foc->mech_offset = theta_mech_mean/n;
 	set_zero_DC();

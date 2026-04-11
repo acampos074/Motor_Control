@@ -547,7 +547,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	theta_dot_int = float_to_uint16(foc.theta_dot_mech,-SPEED_MAX,SPEED_MAX);
 	//torque_cmd_int = float_to_uint(20.0f,-40.0f,40.0f);
 	//torque_cmd_int = float_to_uint16(foc.i_a,-40.0f,40.0f);
-	vq_cmd_int = float_to_uint16(foc.vq_cmd,-V_MAX,V_MAX); // control voltage signal
+	vq_cmd_int = float_to_uint16(foc.pi.vq_cmd,-V_MAX,V_MAX); // control voltage signal
 	iq_cmd_int = float_to_uint16(foc.i_q,-I_MAX,I_MAX); // measured current signal
 	// This is for troubleshooting the CAN Tx message
 	//theta_int = float_to_uint(1.521,-6.2831f,6.2831f);
@@ -609,7 +609,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 			CANFlag = 3;
 			//foc.voltage_FOC_flag = 1;
 			can_rx_vq_cmd_int = (CANRxData[2]<<8 | CANRxData[3]);
-			foc.can_rx_vq_cmd = uint16_to_float(can_rx_vq_cmd_int,-V_MAX,V_MAX);
+			foc.can_rx.vq_cmd = uint16_to_float(can_rx_vq_cmd_int,-V_MAX,V_MAX);
 			break;
 		case 4: // position controller on
 			CANFlag = 4;
@@ -618,7 +618,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 			kp_int = CANRxData[4];
 			kd_int = CANRxData[5];
 			q_cmd_float = uint16_to_float(q_cmd_int,-TWO_PI*GR,TWO_PI*GR);
-			foc.can_rx_q = q_cmd_float;
+			foc.can_rx.q = q_cmd_float;
 			//foc.p_des = q_cmd_float;
 			kp_float = uint8_to_float(kp_int,0.0f,0.1/foc.GAIN);
 			kd_float = uint8_to_float(kd_int,0.0f,0.1/foc.GAIN);
@@ -642,7 +642,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 			kp_int = CANRxData[4];
 			kd_int = CANRxData[5];
 			dq_cmd_float = uint16_to_float(dq_cmd_int,-SPEED_MAX,SPEED_MAX);
-			foc.can_rx_dq = dq_cmd_float;
+			foc.can_rx.dq = dq_cmd_float;
 			kp_float = uint8_to_float(kp_int,0.0f,0.1/foc.GAIN);
 			kd_float = uint8_to_float(kd_int,0.0f,0.1/foc.GAIN);
 			foc.kp = kp_float;
@@ -651,7 +651,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		case 6: // dyno test on
 			CANFlag = 3;
 			can_rx_vq_cmd_int = (CANRxData[2]<<8 | CANRxData[3]);
-			foc.can_rx_vq_cmd = uint16_to_float(can_rx_vq_cmd_int,-V_MAX,V_MAX);
+			foc.can_rx.vq_cmd = uint16_to_float(can_rx_vq_cmd_int,-V_MAX,V_MAX);
 			break;
 		case 7:
 			CANFlag = 7;
@@ -659,7 +659,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		case 8:
 			CANFlag = 8;
 			can_rx_iq_cmd_int = (CANRxData[2]<<8 | CANRxData[3]);
-			foc.can_rx_iq_cmd = uint16_to_float(can_rx_iq_cmd_int,-I_MAX,I_MAX);
+			foc.can_rx.iq_cmd = uint16_to_float(can_rx_iq_cmd_int,-I_MAX,I_MAX);
 			break;
 		case 9:
 			CANFlag = 9;
@@ -667,7 +667,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 			kp_int = CANRxData[4];
 			kd_int = CANRxData[5];
 			torque_cmd_float = uint16_to_float(torque_cmd_int,-TAU_MAX,TAU_MAX);
-			foc.can_rx_torque_cmd = torque_cmd_float;
+			foc.can_rx.torque_cmd = torque_cmd_float;
 			kp_float = uint8_to_float(kp_int,0.0f,0.1/foc.GAIN);
 			kd_float = uint8_to_float(kd_int,0.0f,0.1/foc.GAIN);
 			foc.kp = kp_float;
@@ -693,7 +693,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 
 	// ===== Comment to turn off torque control from Mujoco to MCU =====
 	//foc.iq_ref = foc.can_rx_torques /(KT*GR);
-	foc.id_ref = 0.0f;
+	foc.pi.id_ref = 0.0f;
 	//for(int i=0;i<8;i++){
 	//	CANTxData[i] = CANRxData[i];
 	//}
@@ -733,8 +733,8 @@ void init_DRV(foc_t* foc)
 	uint8_t SPI_DRV_DATA_TX[2] = {0x00,0x00};
 	uint8_t SPI_DRV_DATA_RX[2] = {0x00,0x00};
 
-    foc->adc1_offset = 0;
-    foc->adc2_offset = 0;
+    foc->pi.adc1_offset = 0;
+    foc->pi.adc2_offset = 0;
 
 	// Enable DRV
 	printf("\n\r DRV ENABLE: \n\r");

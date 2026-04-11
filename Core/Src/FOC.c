@@ -41,25 +41,25 @@ void zero_current(foc_t *foc)
     	//HAL_ADC_Start(&hadc2);
       	//adc_a_raw = HAL_ADC_GetValue(&hadc2);
       	//adc_b_raw = HAL_ADC_GetValue(&hadc1);
-    	adc_a_offset += foc->adc2_ia_raw;
-    	adc_b_offset += foc->adc1_ib_raw;
+    	adc_a_offset += foc->pi.adc2_ia_raw;
+    	adc_b_offset += foc->pi.adc1_ib_raw;
      }
     //printf("\rHere!!!\r\n");
-    foc->adc2_offset = adc_a_offset/n;
-    foc->adc1_offset = adc_b_offset/n;
+    foc->pi.adc2_offset = adc_a_offset/n;
+    foc->pi.adc1_offset = adc_b_offset/n;
 
-  	printf("\rADC_a_offset: %u cnts", (foc->adc2_offset));
+  	printf("\rADC_a_offset: %u cnts", (foc->pi.adc2_offset));
   	printf("\r\n");
-  	printf("\rADC_b_offset: %u cnts", (foc->adc1_offset));
+  	printf("\rADC_b_offset: %u cnts", (foc->pi.adc1_offset));
   	printf("\r\n");
   	sample_ADC(foc);
   	//HAL_ADC_Start(&hadc1);
   	//HAL_ADC_Start(&hadc2);
-  	//foc->adc2_ia_raw = HAL_ADC_GetValue(&hadc2);
-  	//foc->adc1_ib_raw = HAL_ADC_GetValue(&hadc1);
-  	printf("\rADC_a: %d cnts", (int)(foc->adc2_ia_raw-foc->adc2_offset) );
+  	//foc->pi.adc2_ia_raw = HAL_ADC_GetValue(&hadc2);
+  	//foc->pi.adc1_ib_raw = HAL_ADC_GetValue(&hadc1);
+  	printf("\rADC_a: %d cnts", (int)(foc->pi.adc2_ia_raw-foc->pi.adc2_offset) );
   	printf("\r\n");
-  	printf("\rADC_b: %d cnts", (int)(foc->adc1_ib_raw-foc->adc1_offset) );
+  	printf("\rADC_b: %d cnts", (int)(foc->pi.adc1_ib_raw-foc->pi.adc1_offset) );
   	printf("\r\n");
 }
 
@@ -132,13 +132,13 @@ void sample_ADC(foc_t *foc)
 
 	if(foc->phase_order_flag == 0)
 	{
-		foc->adc2_ia_raw = HAL_ADC_GetValue(&hadc2); // i_a
-		foc->adc1_ib_raw = HAL_ADC_GetValue(&hadc1); // i_b
+		foc->pi.adc2_ia_raw = HAL_ADC_GetValue(&hadc2); // i_a
+		foc->pi.adc1_ib_raw = HAL_ADC_GetValue(&hadc1); // i_b
 	}
 	else
 	{
-		foc->adc2_ia_raw = HAL_ADC_GetValue(&hadc1); // i_b
-		foc->adc1_ib_raw = HAL_ADC_GetValue(&hadc2); // i_a
+		foc->pi.adc2_ia_raw = HAL_ADC_GetValue(&hadc1); // i_b
+		foc->pi.adc1_ib_raw = HAL_ADC_GetValue(&hadc2); // i_a
 	}
 
 	//printf("\rHere!!!\r\n");
@@ -150,8 +150,8 @@ void sample_ADC(foc_t *foc)
 	foc->VM_raw = HAL_ADC_GetValue(&hadc3); // motor voltage
 	foc->VM = VOLTS_PER_COUNTS*foc->VM_raw;
 
-	foc->i_a = AMPS_PER_COUNTS*((float)foc->adc2_ia_raw - (float)foc->adc2_offset);
-	foc->i_b = AMPS_PER_COUNTS*((float)foc->adc1_ib_raw - (float)foc->adc1_offset);
+	foc->i_a = AMPS_PER_COUNTS*((float)foc->pi.adc2_ia_raw - (float)foc->pi.adc2_offset);
+	foc->i_b = AMPS_PER_COUNTS*((float)foc->pi.adc1_ib_raw - (float)foc->pi.adc1_offset);
 	foc->i_c = -(foc->i_a) - (foc->i_b);
 
 }
@@ -178,56 +178,56 @@ void commutate(foc_t *foc,float theta_elec)
 	}
 
 	// 3. === PI current controller ===
-	float id_error = foc->id_ref - foc->i_d;
-	float iq_error = foc->iq_ref - foc->i_q;
+	float id_error = foc->pi.id_ref - foc->i_d;
+	float iq_error = foc->pi.iq_ref - foc->i_q;
 
 	// 4. Command voltages — mode selects the voltage source
 	if(foc->mode == MODE_CALIBRATION || foc->mode == MODE_OPEN_LOOP_TEST)
 	{
-		foc->vd_cmd = 0.8f;
-		foc->vq_cmd = 0.0f;
+		foc->pi.vd_cmd = 0.8f;
+		foc->pi.vq_cmd = 0.0f;
 	}
 	else if(foc->mode == MODE_VOLTAGE_FOC)
 	{
-		foc->vd_cmd = 0.0f;
-		foc->vq_cmd = foc->can_rx_vq_cmd;
+		foc->pi.vd_cmd = 0.0f;
+		foc->pi.vq_cmd = foc->can_rx.vq_cmd;
 	}
 	else if(foc->mode == MODE_SYSTEM_ID)
 	{
-		foc->vd_cmd = 0.2f;
-		foc->vq_cmd = 0.0f;
+		foc->pi.vd_cmd = 0.2f;
+		foc->pi.vq_cmd = 0.0f;
 	}
 	else
 	{
-		foc->vd_cmd = pdGain*id_error + foc->Sum_id_error;
-		foc->vd_cmd = fmaxf(fminf(foc->vd_cmd, foc->v_max), -foc->v_max);
-		float vq_max = sqrtf(foc->v_max*foc->v_max - foc->vd_cmd*foc->vd_cmd);
+		foc->pi.vd_cmd = pdGain*id_error + foc->pi.Sum_id_error;
+		foc->pi.vd_cmd = fmaxf(fminf(foc->pi.vd_cmd, foc->v_max), -foc->v_max);
+		float vq_max = sqrtf(foc->v_max*foc->v_max - foc->pi.vd_cmd*foc->pi.vd_cmd);
 
-		foc->vq_cmd = pqGain*iq_error + foc->Sum_iq_error;
-		foc->vq_cmd = fmaxf(fminf(foc->vq_cmd, vq_max), -vq_max);
+		foc->pi.vq_cmd = pqGain*iq_error + foc->pi.Sum_iq_error;
+		foc->pi.vq_cmd = fmaxf(fminf(foc->pi.vq_cmd, vq_max), -vq_max);
 	}
 
-	foc->Sum_id_error += pdGain*idGain*id_error;
-	foc->Sum_id_error = fmaxf(fminf(foc->Sum_id_error, foc->v_max), -foc->v_max); // saturate integrator
+	foc->pi.Sum_id_error += pdGain*idGain*id_error;
+	foc->pi.Sum_id_error = fmaxf(fminf(foc->pi.Sum_id_error, foc->v_max), -foc->v_max); // saturate integrator
 
-	foc->Sum_iq_error += pqGain*iqGain*iq_error;
-	foc->Sum_iq_error = fmaxf(fminf(foc->Sum_iq_error, foc->v_max), -foc->v_max); // saturate integrator
+	foc->pi.Sum_iq_error += pqGain*iqGain*iq_error;
+	foc->pi.Sum_iq_error = fmaxf(fminf(foc->pi.Sum_iq_error, foc->v_max), -foc->v_max); // saturate integrator
 
 	// 5. === Limit the voltage commands to not overmodulate ===
-	float cmd_mag = sqrtf(foc->vq_cmd*foc->vq_cmd + foc->vd_cmd*foc->vd_cmd); // take the L2 norm
+	float cmd_mag = sqrtf(foc->pi.vq_cmd*foc->pi.vq_cmd + foc->pi.vd_cmd*foc->pi.vd_cmd); // take the L2 norm
 	if(cmd_mag > V_BUS){
-		foc->vd_cmd = foc->vd_cmd*(V_BUS/cmd_mag);
-		foc->vq_cmd = foc->vq_cmd*(V_BUS/cmd_mag);
+		foc->pi.vd_cmd = foc->pi.vd_cmd*(V_BUS/cmd_mag);
+		foc->pi.vq_cmd = foc->pi.vq_cmd*(V_BUS/cmd_mag);
 	}
 
 	// 6. === Inverse DQ0 Transform ===
 	if(foc->mode == MODE_CALIBRATION || foc->mode == MODE_OPEN_LOOP_TEST)
 	{
-		uvw(theta_elec,foc->vd_cmd,foc->vq_cmd,&foc->v_u,&foc->v_v,&foc->v_w);
+		uvw(theta_elec,foc->pi.vd_cmd,foc->pi.vq_cmd,&foc->v_u,&foc->v_v,&foc->v_w);
 	}
 	else
 	{
-		uvw(foc->theta_elec,foc->vd_cmd,foc->vq_cmd,&foc->v_u,&foc->v_v,&foc->v_w);
+		uvw(foc->theta_elec,foc->pi.vd_cmd,foc->pi.vq_cmd,&foc->v_u,&foc->v_v,&foc->v_w);
 	}
 
 
@@ -239,8 +239,8 @@ void commutate(foc_t *foc,float theta_elec)
 	//set_duty_cycle(foc->phase_order_flag,foc->dc_u,foc->dc_v,foc->dc_w);
 
 	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t)((foc->theta_dot_mech*4095)/50.0f));
-	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, foc->adc2_ia_raw);
-	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, foc->adc1_ib_raw);
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, foc->pi.adc2_ia_raw);
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, foc->pi.adc1_ib_raw);
 
 }
 
@@ -252,36 +252,36 @@ void commutate_v2(foc_t *foc,float theta_elec)
     foc->i_max = I_MAX;
 
 	// 1. === DQ0 Transform ===
-    //foc->iq_dot = foc->i_q;
+    //foc->pi.iq_dot = foc->i_q;
     dq0(foc->theta_elec,foc->i_a,foc->i_b,foc->i_c,&foc->i_d,&foc->i_q);
-    //foc->iq_dot = (foc->i_q-foc->iq_dot)*ONE_OVER_DT;
+    //foc->pi.iq_dot = (foc->i_q-foc->pi.iq_dot)*ONE_OVER_DT;
 
 	// 2. === PI current controller ===
-	float id_error = foc->id_ref - foc->i_d;
-	float iq_error = foc->iq_ref - foc->i_q;
+	float id_error = foc->pi.id_ref - foc->i_d;
+	float iq_error = foc->pi.iq_ref - foc->i_q;
 
-	foc->vd_cmd = pdGain*id_error + foc->Sum_id_error;
-	foc->vd_cmd = fmaxf(fminf(foc->vd_cmd, foc->v_max), -foc->v_max);
-	float vq_max = sqrtf(foc->v_max*foc->v_max - foc->vd_cmd*foc->vd_cmd);
+	foc->pi.vd_cmd = pdGain*id_error + foc->pi.Sum_id_error;
+	foc->pi.vd_cmd = fmaxf(fminf(foc->pi.vd_cmd, foc->v_max), -foc->v_max);
+	float vq_max = sqrtf(foc->v_max*foc->v_max - foc->pi.vd_cmd*foc->pi.vd_cmd);
 
-	foc->vq_cmd = pqGain*iq_error + foc->Sum_iq_error;
-	foc->vq_cmd = fmaxf(fminf(foc->vq_cmd, vq_max), -vq_max);
+	foc->pi.vq_cmd = pqGain*iq_error + foc->pi.Sum_iq_error;
+	foc->pi.vq_cmd = fmaxf(fminf(foc->pi.vq_cmd, vq_max), -vq_max);
 
-	foc->Sum_id_error += pdGain*idGain*id_error;
-	foc->Sum_id_error = fmaxf(fminf(foc->Sum_id_error, foc->v_max), -foc->v_max); // saturate integrator
+	foc->pi.Sum_id_error += pdGain*idGain*id_error;
+	foc->pi.Sum_id_error = fmaxf(fminf(foc->pi.Sum_id_error, foc->v_max), -foc->v_max); // saturate integrator
 
-	foc->Sum_iq_error += pqGain*iqGain*iq_error;
-	foc->Sum_iq_error = fmaxf(fminf(foc->Sum_iq_error, foc->v_max), -foc->v_max); // saturate integrator
+	foc->pi.Sum_iq_error += pqGain*iqGain*iq_error;
+	foc->pi.Sum_iq_error = fmaxf(fminf(foc->pi.Sum_iq_error, foc->v_max), -foc->v_max); // saturate integrator
 
 	// 3. === Limit the voltage commands to not overmodulate ===
-	float cmd_mag = sqrtf(foc->vq_cmd*foc->vq_cmd + foc->vd_cmd*foc->vd_cmd); // take the L2 norm
+	float cmd_mag = sqrtf(foc->pi.vq_cmd*foc->pi.vq_cmd + foc->pi.vd_cmd*foc->pi.vd_cmd); // take the L2 norm
 	if(cmd_mag > V_BUS){
-		foc->vd_cmd = foc->vd_cmd*(V_BUS/cmd_mag);
-		foc->vq_cmd = foc->vq_cmd*(V_BUS/cmd_mag);
+		foc->pi.vd_cmd = foc->pi.vd_cmd*(V_BUS/cmd_mag);
+		foc->pi.vq_cmd = foc->pi.vq_cmd*(V_BUS/cmd_mag);
 	}
 
 	// 4. === Inverse DQ0 Transform ===
-	uvw(foc->theta_elec,foc->vd_cmd,foc->vq_cmd,&foc->v_u,&foc->v_v,&foc->v_w);
+	uvw(foc->theta_elec,foc->pi.vd_cmd,foc->pi.vq_cmd,&foc->v_u,&foc->v_v,&foc->v_w);
 
 	// 5. === SVM ===
 	svm(foc->v_u,foc->v_v,foc->v_w,&foc->dc_u,&foc->dc_v,&foc->dc_w);
@@ -291,8 +291,8 @@ void commutate_v2(foc_t *foc,float theta_elec)
 	//set_duty_cycle(foc->phase_order_flag,foc->dc_u,foc->dc_v,foc->dc_w);
 
 	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t)((foc->theta_dot_mech*4095)/50.0f));
-	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, foc->adc2_ia_raw);
-	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, foc->adc1_ib_raw);
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, foc->pi.adc2_ia_raw);
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, foc->pi.adc1_ib_raw);
 
 }
 
@@ -308,33 +308,33 @@ void torque_control(foc_t *foc)
 	float torque_cmd;
 	if(foc->mode == MODE_POSITION)
 	{
-		torque_cmd = foc->kp*(foc->can_rx_q - foc->theta_mech_multiturn[0]) + foc->kd*(foc->theta_dot_mech_cmd - foc->theta_dot_mech);
-		foc->iq_ref = torque_cmd / KT;
-		foc->id_ref = 0.0f;
+		torque_cmd = foc->kp*(foc->can_rx.q - foc->theta_mech_multiturn[0]) + foc->kd*(foc->theta_dot_mech_cmd - foc->theta_dot_mech);
+		foc->pi.iq_ref = torque_cmd / KT;
+		foc->pi.id_ref = 0.0f;
 	}
 	else if(foc->mode == MODE_SPEED)
 	{
-		torque_cmd = foc->kp*(foc->can_rx_dq - foc->theta_dot_mech);
-		foc->iq_ref = torque_cmd / KT;
-		foc->id_ref = 0.0f;
+		torque_cmd = foc->kp*(foc->can_rx.dq - foc->theta_dot_mech);
+		foc->pi.iq_ref = torque_cmd / KT;
+		foc->pi.id_ref = 0.0f;
 	}
 	else if(foc->mode == MODE_CURRENT)
 	{
-		foc->iq_ref = foc->can_rx_iq_cmd;
-		foc->id_ref = 0.0f;
+		foc->pi.iq_ref = foc->can_rx.iq_cmd;
+		foc->pi.id_ref = 0.0f;
 	}
 	else if(foc->mode == MODE_TORQUE)
 	{
-		foc->iq_ref = foc->can_rx_torque_cmd / KT;
-		foc->id_ref = 0.0f;
+		foc->pi.iq_ref = foc->can_rx.torque_cmd / KT;
+		foc->pi.id_ref = 0.0f;
 	}
 
 	//float torque_cmd = KP*(foc->p_des-foc->theta_mech)*foc->pos_control_flag + KD*(foc->theta_dot_mech_cmd - foc->theta_dot_mech);
 	// P velocity control
-	//foc->iq_ref = torque_cmd/(KT*GR)/GearRatio;
-	//foc->iq_ref = torque_cmd/(KT*GR);
-	//foc->id_ref = 0.0f;
-	//printf("tau: %f  iq_ref: %f\r\n",torque_cmd,foc->iq_ref);
+	//foc->pi.iq_ref = torque_cmd/(KT*GR)/GearRatio;
+	//foc->pi.iq_ref = torque_cmd/(KT*GR);
+	//foc->pi.id_ref = 0.0f;
+	//printf("tau: %f  iq_ref: %f\r\n",torque_cmd,foc->pi.iq_ref);
 
 }
 
@@ -363,19 +363,19 @@ void reset_variables(foc_t *foc,calibration_t *cal,hes_t *hes,SPI_HandleTypeDef 
 	foc->i_c = 0;
 	foc->i_d = 0;
 	foc->i_q = 0;
-	foc->iq_dot = 0;
+	foc->pi.iq_dot = 0;
 	foc->VM = 24.0f;
-	foc->iq_ref = 0;
-	foc->id_ref = 0;
-	foc->Sum_iq_error =0;
-	foc->Sum_id_error =0;
-	foc->vq_cmd = 0;
-	foc->vd_cmd = 0;
+	foc->pi.iq_ref = 0;
+	foc->pi.id_ref = 0;
+	foc->pi.Sum_iq_error =0;
+	foc->pi.Sum_id_error =0;
+	foc->pi.vq_cmd = 0;
+	foc->pi.vd_cmd = 0;
 	foc->v_u=0;
 	foc->v_v=0;
 	foc->v_w=0;
-	foc->adc1_offset = 0;
-	foc->adc2_offset = 0;
+	foc->pi.adc1_offset = 0;
+	foc->pi.adc2_offset = 0;
 	foc->theta_elec = 0;
 	foc->theta_mech = 0;
 	foc->GAIN = 25.0;
@@ -394,9 +394,9 @@ void reset_variables(foc_t *foc,calibration_t *cal,hes_t *hes,SPI_HandleTypeDef 
 	foc->dc_w = 0;
 	foc->v_max = 0;
 	foc->i_max = 0;
-	foc->can_rx_torques = 0;
-	foc->can_rx_dq = 0;
-	foc->can_rx_vq_cmd = 0;
+	foc->can_rx.torques = 0;
+	foc->can_rx.dq = 0;
+	foc->can_rx.vq_cmd = 0;
 }
 
 void print_flags(foc_t *foc)
