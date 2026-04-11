@@ -314,7 +314,7 @@ int main(void)
   DacState_2 = 0;
 
   /* ADC Config — prime the pipeline so the first ISR tick has a valid reading */
-  trigger_ADC();
+  HAL_ADC_Start(&hadc1); // arm ADC1 (master); read_ADC() will re-trigger each ISR
 
   /* Initialize the SPI DMA */
 

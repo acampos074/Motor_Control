@@ -105,10 +105,10 @@ void set_zero_DC(void)
 	TIM1->CCR1 = 0; // C
 }
 
-/* Read the ADC result captured by the PREVIOUS TIM1 TRGO trigger.
- * Called at the START of the ISR: the new conversion (from this same update event)
- * takes ~333 ns to complete, so DR still holds the previous period's result.
- * No waiting — the hardware has the sample ready well before the ISR fires. */
+/* Read last cycle's ADC result (already in DR), then kick off the next conversion.
+ * STM32F446 regular channels cannot use TIM1 TRGO — software trigger only.
+ * Sequence: ISR fires → read previous DR → SWSTART new conversion → compute.
+ * The new conversion (~1 µs) completes long before the next ISR (25 µs). */
 void read_ADC(foc_t *foc)
 {
 	if (foc->phase_order_flag == 0)
@@ -128,6 +128,10 @@ void read_ADC(foc_t *foc)
 	foc->i_a = AMPS_PER_COUNTS * ((float)foc->pi.adc2_ia_raw - (float)foc->pi.adc2_offset);
 	foc->i_b = AMPS_PER_COUNTS * ((float)foc->pi.adc1_ib_raw - (float)foc->pi.adc1_offset);
 	foc->i_c = -(foc->i_a) - (foc->i_b);
+
+	// Start next conversion — ADC1 is master; in triple-simultaneous mode this
+	// triggers ADC2 and ADC3 at the same instant. Result ready in ~1 µs.
+	ADC1->CR2 |= ADC_CR2_SWSTART;
 }
 
 /* Blocking sample — for use OUTSIDE the ISR only (e.g. zero_current()).

@@ -311,7 +311,7 @@ void TIM1_UP_TIM10_IRQHandler(void)
 
 		case MODE_IDLE:
 		default:
-			// do nothing
+			; // do nothing
 	}
 
   /* USER CODE END TIM1_UP_TIM10_IRQn 0 */

@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "BITDEFS.H"
+#include "BITDEFS.h"
 
 // the headers to access the GPIO subsystem
 #include "stm32f4xx.h"                  // Device header
