@@ -333,81 +333,53 @@ void TIM1_UP_TIM10_IRQHandler(void)
 	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
 
 	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
-  	// if controller flag is on, then commutate
-	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 4094);
-	if(foc.voltage_FOC_flag == 1)
+  	// Dispatch based on active control mode
+	switch(foc.mode)
 	{
-		commutate(&foc,foc.theta_elec);
+		case MODE_VOLTAGE_FOC:
+			commutate(&foc, foc.theta_elec);
+			break;
 
-		//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
-		//printf("%d \r\n",foc.torque_control_counter);
-		//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t)(foc.i_q*100000) );
-		//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t)(foc.i_q*4096));
-		//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, (uint16_t)(foc.i_d*4096));
-	}
+		case MODE_POSITION:
+		case MODE_SPEED:
+		case MODE_CURRENT:
+		case MODE_TORQUE:
+			// Outer loop (torque/position/speed) runs at TORQUE_LOOP_HZ (1 kHz)
+			if(foc.torque_control_counter > TORQUE_DIVIDER)
+			{
+				torque_control(&foc);
+				foc.torque_control_counter = 0;
+			}
+			foc.torque_control_counter++;
+			commutate_v2(&foc, foc.theta_elec);
+			break;
 
-	else if(foc.controller_flag == 1)
-	{
-		//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 4095);
+		case MODE_CALIBRATION:
+			cal.loop_count++;
+			calibrate_HES2(&foc, &cal, cal.loop_count, &hes);
+			break;
 
-				// Uncomment for local torque controller
-		        // TORQUE_DIVIDER = F_PWM / TORQUE_LOOP_HZ — updates automatically when F_PWM changes
-		        if(foc.torque_control_counter > TORQUE_DIVIDER)
-				//if(foc.torque_control_counter > 25 && foc.torque_control_counter_total < 25*100)
-				{
-					torque_control(&foc); // **** ==== Uncomment to implement torque control within the MCU ==== ****
-					foc.torque_control_counter = 0;
+		case MODE_OPEN_LOOP_TEST:
+			cal.loop_count++;
+			open_loop_test(&foc, &cal, cal.loop_count);
+			break;
 
-					 /*
-					foc.torque_control_counter_total++;
-					if(foc.torque_control_counter_total == 25*100)
-					{
-						HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_5);// debug pin
-						foc.iq_ref = 0;
-						foc.id_ref = 0;
-						set_zero_DC();
-					}
-					 */
+		case MODE_SYSTEM_ID:
+			cal.loop_count++;
+			commutate(&foc, foc.theta_elec);
+			if(cal.loop_count > 400) // 10ms at 40 kHz
+			{
+				foc.mode = MODE_IDLE;
+				cal.loop_count = 0;
+				set_zero_DC();
+			}
+			printf("ia:%.3f ib:%.3f ic:%.3f u:%.3f v:%.3f w:%.3f id:%.3f iq:%.3f\r\n",
+				foc.i_a, foc.i_b, foc.i_c, foc.v_u, foc.v_v, foc.v_w, foc.i_d, foc.i_q);
+			break;
 
-					//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
-				}
-
-				foc.torque_control_counter++;
-				//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 4094);
-				commutate_v2(&foc,foc.theta_elec);
-				//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
-
-	}
-
-	else if(foc.cal_flag == 1)
-	{
-		cal.loop_count++;
-		calibrate_HES2(&foc,&cal,cal.loop_count,&hes);
-	}
-	else if(foc.open_loop_test_flag == 1)
-	{
-		cal.loop_count++;
-		open_loop_test(&foc,&cal,cal.loop_count);
-	}
-	else if(foc.systemID_flag == 1)
-	{
-		cal.loop_count++;
-		commutate(&foc,foc.theta_elec);
-		//DacVal = (uint16_t)(foc.i_d*4096);
-		//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, DacVal );
-		if(cal.loop_count > 400) // 10ms (400 samples at 40khz)
-		{
-			foc.systemID_flag = 0; // set flag to zero to exit system ID state
-			cal.loop_count = 0;
-			set_zero_DC();
-			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
-		}
-		printf("ia:%.3f ib:%.3f ic:%.3f u:%.3f v:%.3f w:%.3f id:%.3f iq:%.3f\r\n",foc.i_a,foc.i_b,foc.i_c,foc.v_u,foc.v_v,foc.v_w,foc.i_d,foc.i_q);
-
-	}
-	else
-	{
-		// do nothing
+		case MODE_IDLE:
+		default:
+			// do nothing
 	}
 	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t)((foc.theta_dot_mech*4095)/50.0f));
 	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);

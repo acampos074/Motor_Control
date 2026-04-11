@@ -130,15 +130,28 @@
 //#define KP 0.0001f //0.05f // 0.018 & 0.024 works ok (i.e. still stable for position control)
 //#define KD 0.0001f //0.012f // 0.024f works well for speed control
 
+// Control mode — mutually exclusive, replaces the 8 boolean flags
+typedef enum {
+    MODE_IDLE           = 0,  // PWM off, no commutation
+    MODE_CALIBRATION,         // open-loop encoder calibration sweep
+    MODE_OPEN_LOOP_TEST,      // open-loop diagnostic rotation
+    MODE_SYSTEM_ID,           // constant voltage injection for parameter ID
+    MODE_VOLTAGE_FOC,         // direct vq command via CAN (no current PI)
+    MODE_CURRENT,             // closed-loop: direct iq_ref command
+    MODE_SPEED,               // closed-loop: P speed → iq_ref
+    MODE_POSITION,            // closed-loop: PD position → iq_ref
+    MODE_TORQUE,              // closed-loop: torque command → iq_ref (1 kHz update)
+} control_mode_t;
+
 typedef struct {
 	float i_a ,i_b ,i_c ;                              // ABC currents
-	float i_d ,i_q; // DQ currents
+	float i_d ,i_q;                                    // DQ currents
 	float iq_dot;
 	float iq_ref, id_ref;
 	float Sum_iq_error, Sum_id_error;
 	float vq_cmd, vd_cmd;
 	float  v_u,v_v,v_w;
-	uint16_t adc2_ia_raw,adc1_ib_raw;                             // ABC raw currents
+	uint16_t adc2_ia_raw,adc1_ib_raw;                 // ABC raw currents
 	uint16_t adc1_offset, adc2_offset;
 	uint16_t theta_mech_raw;
 	uint16_t VM_raw;
@@ -158,17 +171,10 @@ typedef struct {
 	float can_rx_dq,can_rx_q,can_rx_vq_cmd,can_rx_iq_cmd,can_rx_torque_cmd;
 	float kp,kd;
 	float GAIN;
-	uint8_t controller_flag;
-	uint8_t phase_order_flag;
-	uint8_t cal_flag;
-	uint8_t open_loop_test_flag;
-	uint8_t systemID_flag;
-	uint8_t voltage_FOC_flag;
+	control_mode_t mode;       // active control mode (replaces 8 boolean flags)
+	uint8_t phase_order_flag;  // hardware wiring: 0=normal, 1=swapped phase order
 	uint8_t torque_control_counter;
 	uint32_t torque_control_counter_total;
-	uint8_t pos_control_flag,speed_control_flag,current_control_flag,torque_control_flag;
-
-
 
 } foc_t;
 

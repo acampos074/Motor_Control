@@ -167,7 +167,8 @@ void commutate(foc_t *foc,float theta_elec)
     foc->i_max = I_MAX;
 
 	// 2. === DQ0 Transform ===
-	if(foc->cal_flag == 1 || foc->open_loop_test_flag == 1)
+	// Calibration/open-loop use the reference angle theta_elec; all other modes use measured
+	if(foc->mode == MODE_CALIBRATION || foc->mode == MODE_OPEN_LOOP_TEST)
 	{
 		dq0(theta_elec,foc->i_a,foc->i_b,foc->i_c,&foc->i_d,&foc->i_q);
 	}
@@ -176,26 +177,22 @@ void commutate(foc_t *foc,float theta_elec)
 		dq0(foc->theta_elec,foc->i_a,foc->i_b,foc->i_c,&foc->i_d,&foc->i_q);
 	}
 
-	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t)(foc->i_a/AMPS_PER_COUNTS)+2048);
-
-
 	// 3. === PI current controller ===
 	float id_error = foc->id_ref - foc->i_d;
 	float iq_error = foc->iq_ref - foc->i_q;
 
-	// 4. Command voltages
-	if(foc->cal_flag == 1 || foc->open_loop_test_flag == 1)
+	// 4. Command voltages — mode selects the voltage source
+	if(foc->mode == MODE_CALIBRATION || foc->mode == MODE_OPEN_LOOP_TEST)
 	{
 		foc->vd_cmd = 0.8f;
 		foc->vq_cmd = 0.0f;
 	}
-	else if(foc->voltage_FOC_flag == 1)
+	else if(foc->mode == MODE_VOLTAGE_FOC)
 	{
 		foc->vd_cmd = 0.0f;
-		//foc->vq_cmd = 0.5f;
 		foc->vq_cmd = foc->can_rx_vq_cmd;
 	}
-	else if(foc->systemID_flag == 1)
+	else if(foc->mode == MODE_SYSTEM_ID)
 	{
 		foc->vd_cmd = 0.2f;
 		foc->vq_cmd = 0.0f;
@@ -206,10 +203,8 @@ void commutate(foc_t *foc,float theta_elec)
 		foc->vd_cmd = fmaxf(fminf(foc->vd_cmd, foc->v_max), -foc->v_max);
 		float vq_max = sqrtf(foc->v_max*foc->v_max - foc->vd_cmd*foc->vd_cmd);
 
-		//	vd_cmd = 0.0f;
 		foc->vq_cmd = pqGain*iq_error + foc->Sum_iq_error;
 		foc->vq_cmd = fmaxf(fminf(foc->vq_cmd, vq_max), -vq_max);
-		//	vq_cmd = 0.0f;
 	}
 
 	foc->Sum_id_error += pdGain*idGain*id_error;
@@ -226,7 +221,7 @@ void commutate(foc_t *foc,float theta_elec)
 	}
 
 	// 6. === Inverse DQ0 Transform ===
-	if(foc->cal_flag == 1 || foc->open_loop_test_flag == 1)
+	if(foc->mode == MODE_CALIBRATION || foc->mode == MODE_OPEN_LOOP_TEST)
 	{
 		uvw(theta_elec,foc->vd_cmd,foc->vq_cmd,&foc->v_u,&foc->v_v,&foc->v_w);
 	}
@@ -311,35 +306,27 @@ void torque_control(foc_t *foc)
 	time = time + 0.001f; // since sampling frequency is 1kHz
 	// foc->theta_mech_multiturn[0]
 	float torque_cmd;
-	if(foc->pos_control_flag == 1)
+	if(foc->mode == MODE_POSITION)
 	{
-		//foc->p_des = (3.1415*0 + 3.1415/2*sin(2*3.1415*time/1.0))*GR; // 4.0
-		//torque_cmd = foc->kp*(foc->p_des-foc->theta_mech_multiturn[0])*foc->pos_control_flag + foc->kd*(foc->theta_dot_mech_cmd - foc->theta_dot_mech);
-		torque_cmd = foc->kp*(foc->can_rx_q-foc->theta_mech_multiturn[0])*foc->pos_control_flag + foc->kd*(foc->theta_dot_mech_cmd - foc->theta_dot_mech);
-		foc->iq_ref = torque_cmd/(KT*GR/GR);// added extra GR term on 10/21 to see if tracking improved
-		//foc->iq_ref = torque_cmd/(KT);
+		torque_cmd = foc->kp*(foc->can_rx_q - foc->theta_mech_multiturn[0]) + foc->kd*(foc->theta_dot_mech_cmd - foc->theta_dot_mech);
+		foc->iq_ref = torque_cmd / KT;
 		foc->id_ref = 0.0f;
 	}
-	else if(foc->speed_control_flag == 1) // proportional control speed controller
+	else if(foc->mode == MODE_SPEED)
 	{
-		torque_cmd = foc->kp*(foc->can_rx_dq - foc->theta_dot_mech); // it used to multiplied by KD
-		foc->iq_ref = torque_cmd/(KT*GR/GR);
-		//foc->iq_ref = torque_cmd/(KT);
+		torque_cmd = foc->kp*(foc->can_rx_dq - foc->theta_dot_mech);
+		foc->iq_ref = torque_cmd / KT;
 		foc->id_ref = 0.0f;
 	}
-	else if(foc->current_control_flag == 1)
+	else if(foc->mode == MODE_CURRENT)
 	{
 		foc->iq_ref = foc->can_rx_iq_cmd;
 		foc->id_ref = 0.0f;
 	}
-	else if(foc->torque_control_flag == 1)
+	else if(foc->mode == MODE_TORQUE)
 	{
-		foc->iq_ref = foc->can_rx_torque_cmd/(KT*GR/GR);
+		foc->iq_ref = foc->can_rx_torque_cmd / KT;
 		foc->id_ref = 0.0f;
-	}
-	else
-	{
-		// do nothing
 	}
 
 	//float torque_cmd = KP*(foc->p_des-foc->theta_mech)*foc->pos_control_flag + KD*(foc->theta_dot_mech_cmd - foc->theta_dot_mech);
@@ -361,17 +348,9 @@ void reset_variables(foc_t *foc,calibration_t *cal,hes_t *hes,SPI_HandleTypeDef 
 	cal->sample_count = 0;
 	cal->started = 0;
 
-	foc->systemID_flag=0;
-	foc->cal_flag=0;
-	// changed phase_order_flag to 0 to align calibration on 06/19/24
-	foc->phase_order_flag = 0; ////// !!!!!! on 09/17/23 changed this from 0 to 1 when the magnet was assembled on the opposite direction (i.e. back of the motor)
-	foc->controller_flag = 0;
-	foc->open_loop_test_flag = 0;
-	foc->voltage_FOC_flag = 0;
-	foc->pos_control_flag = 0; // changed this to default 0 at reset
-	foc->speed_control_flag = 0;
-	foc->current_control_flag = 0;
-	foc->torque_control_flag = 0;
+	foc->mode = MODE_IDLE;
+	// NOTE: set phase_order_flag = 1 if the motor magnet is assembled in the reverse direction
+	foc->phase_order_flag = 0;
 
 	foc->kp = 0.0f;//0.05f; // commented out on 10/21
 	foc->kd = 0.0f;//0.012f; // commented out on 10/21
@@ -422,17 +401,14 @@ void reset_variables(foc_t *foc,calibration_t *cal,hes_t *hes,SPI_HandleTypeDef 
 
 void print_flags(foc_t *foc)
 {
-	printf("systemID_flag: %d", foc->systemID_flag);
-	printf("\r\n");
-	printf("cal_flag: %d", foc->cal_flag);
+	const char *mode_names[] = {
+		"MODE_IDLE", "MODE_CALIBRATION", "MODE_OPEN_LOOP_TEST",
+		"MODE_SYSTEM_ID", "MODE_VOLTAGE_FOC", "MODE_CURRENT",
+		"MODE_SPEED", "MODE_POSITION", "MODE_TORQUE"
+	};
+	printf("mode: %s", mode_names[foc->mode]);
 	printf("\r\n");
 	printf("phase_order_flag: %d", foc->phase_order_flag);
-	printf("\r\n");
-	printf("controller_flag: %d", foc->controller_flag);
-	printf("\r\n");
-	printf("open_loop_test_flag: %d", foc->open_loop_test_flag);
-	printf("\r\n");
-	printf("voltage_FOC_flag: %d", foc->voltage_FOC_flag);
 	printf("\r\n");
 }
 

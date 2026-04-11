@@ -175,22 +175,19 @@ ES_Event RunFSM( ES_Event ThisEvent )
   	         }
   	         break;
   	  case CalibratingHES :
-  		  // Trapped in this state until cal_flag is set to Zero
-  		  if(foc.cal_flag == 0)
+  		  if(foc.mode == MODE_IDLE)
   		  {
   			CurrentState = Waiting4UserInput;
   		  }
   		  break;
   	  case OpenLoopTest :
-  		  // Trapped in this state until cal_flag is set to Zero
-  		  if(foc.open_loop_test_flag == 0)
+  		  if(foc.mode == MODE_IDLE)
   		  {
   			CurrentState = Waiting4UserInput;
   		  }
   		  break;
   	  case SystemID :
-  		  // Trapped in this state until systemID_flag is set to Zero
-  		  if(foc.systemID_flag == 0)
+  		  if(foc.mode == MODE_IDLE)
   		  {
   			CurrentState = Waiting4UserInput;
   		  }
@@ -276,18 +273,16 @@ ES_Event RunFSM( ES_Event ThisEvent )
   		        }
   		        else if( 'k' == ThisEvent.EventParam ){
   		        	printf("\rHES Calibration \r\n");
-  		        	foc.cal_flag = 1;
+  		        	foc.mode = MODE_CALIBRATION;
   		        	CurrentState = CalibratingHES;
   		        }
   		        else if( 'p' == ThisEvent.EventParam ){
   		        	printf("\rOpen Loop Test \r\n");
-  		        	//cal.loop_count = 0;
-  		        	foc.open_loop_test_flag = 1;
+  		        	foc.mode = MODE_OPEN_LOOP_TEST;
   		        	CurrentState = OpenLoopTest;
   		        }
   		        else if( 'f' == ThisEvent.EventParam ){
-  		        	//printf("\rVoltage FOC Test \r\n");
-  		        	foc.voltage_FOC_flag = 1;
+  		        	foc.mode = MODE_VOLTAGE_FOC;
   		        }
   		        else if( 'd' == ThisEvent.EventParam ){
   		        	printf("\rNew Set Point \r\n");
@@ -303,103 +298,30 @@ ES_Event RunFSM( ES_Event ThisEvent )
   		        }
   		        else if( 'i' == ThisEvent.EventParam ){
   		        	printf("\rSystem ID Test \r\n");
-  		        	//cal.loop_count = 0;
-  		        	foc.systemID_flag = 1;
+  		        	foc.mode = MODE_SYSTEM_ID;
   		        	CurrentState = SystemID;
   		        	set_zero_DC();
-  		        	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
   		        }
   		        else if( 'm' == ThisEvent.EventParam ){
-  		      	  //printf("\rController ON\r\n");
-  		          // Pack response
-  		      	  /*
-  		      	  CANTxData[0] = 0x01;
-  		      	  CANTxData[1] = 0x02;
-  		      	  CANTxData[2] = 0x03;
-  		      	  CANTxData[3] = 0x04;
-  		      	  CANTxData[4] = 0x05;
-  		      	  CANTxData[5] = 0x06;
-  		      	  CANTxData[6] = 0x07;
-  		      	  CANTxData[7] = 0x08;
-  		      	  */
-  		      	  // Transmit the CAN message
-  		      	  //HAL_CAN_AddTxMessage(&hcan1, &TxMessage, CANTxData, &TxMailbox);
-  		      	  //CANFlag = 1;
-  		      	  //HAL_Delay(1000);
-  		      	  // send non-zero torque command
-
-  		      	  // set flag to true
-  		      	  //HAL_TIM_Base_Start_IT(&htim1);
-  		      	  //foc.iq_ref = 0.1*0; // anything less than 0.1 the controller has issues with tracking
-  		    	  //foc.id_ref = 0.2;
-  		      	  //foc.iq_ref = 0.08; // anything less than 0.1 the controller has issues with tracking
-  		    	  //foc.id_ref = 0.0;
-  		      	  //foc.first_sample = 0.0;
-  		      	  //foc.iq_ref = 0.0;
-  		      	  //foc.id_ref = 0.0;
   		      	  foc.theta_dot_mech_cmd = 0.1f;
-  		      	  //foc.theta_dot_mech_cmd = 30.0f;
-  		      	  //foc.torque_control_counter_total = 0;
-  		      	  //foc.p_des = 0.09f;
-  		      	  foc.controller_flag = 1;
-  		      	  foc.pos_control_flag = 1;
-		      	  foc.speed_control_flag = 0;
-		      	  foc.current_control_flag = 0;
-		      	  foc.torque_control_flag = 0;
-
+  		      	  foc.mode = MODE_POSITION;
   		        }
   		        else if('w' == ThisEvent.EventParam )
   		        {
-  		        	//printf("\rSpeed Controller ON\r\n");
-    		      	  //foc.first_sample = 0.0;
-    		      	  //foc.iq_ref = 0.0;
-    		      	  //foc.id_ref = 0.0;
-    		      	  //foc.theta_dot_mech_cmd = 0.1f;
-    		      	  //foc.theta_dot_mech_cmd = 30.0f;
-    		      	  //foc.torque_control_counter_total = 0;
-    		      	  //foc.p_des = 0.09f;
-    		      	  foc.controller_flag = 1;
-    		      	  foc.pos_control_flag = 0;
-    		      	  foc.speed_control_flag = 1;
-    		      	  foc.current_control_flag = 0;
-    		      	  foc.torque_control_flag = 0;
-
+  		        	foc.mode = MODE_SPEED;
   		        }
   		        else if('x' == ThisEvent.EventParam )
   		        {
-    		      	  foc.controller_flag = 1;
-    		      	  foc.pos_control_flag = 0;
-    		      	  foc.speed_control_flag = 0;
-    		      	  foc.current_control_flag = 1;
-    		      	  foc.torque_control_flag = 0;
+  		        	foc.mode = MODE_CURRENT;
   		        }
   		        else if('z' == ThisEvent.EventParam )
   		        {
-    		      	  foc.controller_flag = 1;
-    		      	  foc.pos_control_flag = 0;
-    		      	  foc.speed_control_flag = 0;
-    		      	  foc.current_control_flag = 0;
-    		      	  foc.torque_control_flag = 1;
+  		        	foc.mode = MODE_TORQUE;
   		        }
   		        else if( 'o' == ThisEvent.EventParam ){
   		      	 printf("\rController OFF\r\n");
-  		      	 // send zero torque command to controller
-  		      	 // Lower CS line
-  		      	 //HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  		      	 //HAL_SPI_Transmit(&hspi2, SPI_DATA_TX, 1, 100);
-  		      	 // Set CS line high
-  		      	 //HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-
-  		      	 //HAL_TIM_Base_Stop_IT(&htim1);
-  		      	 foc.cal_flag = 0;
-  		      	 foc.controller_flag = 0;
-  		      	 foc.voltage_FOC_flag = 0;
-				 foc.pos_control_flag = 0;
-				 foc.speed_control_flag = 0;
-				 foc.current_control_flag = 0;
+  		      	 foc.mode = MODE_IDLE;
   		      	 set_zero_DC();
-  		      	 //HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0 );
-  		      	 //HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0 );
   		      	 CurrentState = Waiting4UserInput;
 
   		        }

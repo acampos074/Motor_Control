@@ -172,7 +172,7 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 	}
 
 	set_zero_DC();
-	foc->cal_flag = 0; // set flag to zero to exit calibration state
+	foc->mode = MODE_IDLE; // exit calibration state
 	cal->started = 0;
 	cal->time = 0;
 	cal->loop_count = 0;
@@ -259,9 +259,7 @@ void open_loop_test(foc_t *foc,calibration_t *cal,float loop_count)
 	}
 
 	set_zero_DC();
-	foc->open_loop_test_flag = 0; // set flag to zero to exit calibration state
-	cal->started = 0;
-	foc->cal_flag = 0; // set flag to zero to exit calibration state
+	foc->mode = MODE_IDLE; // exit open loop test state
 	cal->started = 0;
 	cal->time = 0;
 	cal->loop_count = 0;
