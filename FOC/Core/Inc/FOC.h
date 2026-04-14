@@ -109,6 +109,17 @@
 #define PI 3.14159265359f
 #define RADS_PER_COUNTS  0.000383495197f //
 
+// Least-squares velocity estimator constants (N_POS_SAMPLES = 20)
+// sum_i  = N*(N-1)/2          = 190
+// sum_i2 = N*(N-1)*(2N-1)/6  = 2470
+// denom  = N*sum_i2 - sum_i^2 = 13300
+#define LS_SUM_I      190.0f
+#define LS_DENOM_INV  (1.0f / (13300.0f * DT))
+
+// IIR low-pass filter on velocity: tau ≈ DT / ALPHA
+// 0.05 → ~0.5 ms time constant at 40 kHz; reduce for smoother (more lag)
+#define VEL_FILTER_ALPHA 0.05f
+
 // Calibration parameters
 #define W_CAL 20.0f // calibration rotation speed (rad/sec)
 #define SAMPLES_PER_PPAIR 128
