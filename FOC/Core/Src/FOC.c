@@ -83,17 +83,17 @@ void set_duty_cycle(uint8_t flag,float dc_u,float dc_v, float dc_w)
 		//TIM1->CCR1 = Fs*(1.0f-0.10f); // C
 		//TIM1->CCR3 = Fs*(1.0f-dc_u); // A
 		//TIM1->CCR2 = Fs*(1.0f-dc_v); // B
-		//TIM1->CCR1 = Fs*(1.0f-dc_w); // C // Need to remove the 1-dc. TODO since 09/17/23
-		TIM1->CCR3 = Fs*(dc_u); // A
-		TIM1->CCR2 = Fs*(dc_v); // B
-		TIM1->CCR1 = Fs*(dc_w); // C // Removed 1-dc on 06/19/24
+		//TIM1->CCR1 = Fs*(1.0f-dc_w); // C //
+		TIM1->CCR3 = Fs*(1-dc_u); // A
+		TIM1->CCR2 = Fs*(1-dc_v); // B
+		TIM1->CCR1 = Fs*(1-dc_w); // C // Added 1-dc on 04/13/26
 
 	}
 	else // Swap
 	{
-		TIM1->CCR3 = Fs*(dc_u);
-		TIM1->CCR1 = Fs*(dc_v);
-		TIM1->CCR2 = Fs*(dc_w); // removed the 1-dc value when flipping the board
+		TIM1->CCR3 = Fs*(1-dc_u);
+		TIM1->CCR1 = Fs*(1-dc_v);
+		TIM1->CCR2 = Fs*(1-dc_w); //
 
 	}
 }
