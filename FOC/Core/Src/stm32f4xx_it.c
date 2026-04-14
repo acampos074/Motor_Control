@@ -261,7 +261,25 @@ void CAN1_RX0_IRQHandler(void)
   */
 void TIM1_UP_TIM10_IRQHandler(void)
 {
+
+
   /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 0 */
+
+	/*
+	static uint8_t toggle = 0;
+
+	if (toggle == 0)
+	{
+		HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 4095);
+	    toggle = 1;
+	}
+	else
+	{
+		HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
+	    toggle = 0;
+	}
+	*/
+
 	read_ADC(&foc);        // reads result of previous tick's hardware-triggered conversion
 	sample_HES(&foc, &cal, &hes);
 

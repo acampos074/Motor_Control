@@ -172,6 +172,7 @@ void commutate(foc_t *foc,float theta_elec)
 	else if(foc->mode == MODE_VOLTAGE_FOC)
 	{
 		foc->pi.vd_cmd = 0.0f;
+		//foc->pi.vq_cmd = 0.5f;
 		foc->pi.vq_cmd = foc->can_rx.vq_cmd;
 	}
 	else if(foc->mode == MODE_SYSTEM_ID)

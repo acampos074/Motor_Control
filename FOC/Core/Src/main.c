@@ -315,14 +315,13 @@ int main(void)
 
   /* ADC Config — prime the pipeline so the first ISR tick has a valid reading */
   HAL_ADC_Start(&hadc1); // arm ADC1 (master); read_ADC() will re-trigger each ISR
-
+  HAL_ADC_Start(&hadc2);
+  HAL_ADC_Start(&hadc3);
   /* Initialize the SPI DMA */
 
 	//hes_buffer_tx[0] = (uint8_t) (hes_tx_message & 0x00FF);
 	//hes_buffer_tx[1] = (uint8_t) ((hes_tx_message & 0xFF00)>>8);
   //hes->spiHandle = hspi3;
-
-
 
   hes_tx_message = ( (PARC<<15) | (W0_READ<<14) | ANGLEUNC ); // ANGLEUNC ANGLECOM
   hes_buffer_tx[0] = (uint8_t) (hes_tx_message & 0x00FF);
@@ -360,25 +359,20 @@ int main(void)
   warmup_HES();
   HAL_Delay(1000); // 1000 ms delay
 
-  /* PWM Config — start TIM1 at zero duty BEFORE DRV init so TIM1 TRGO pulses
-   * are available when zero_current() runs. Gate driver is still disabled (PA11 LOW)
-   * so no motor current flows. */
+  /* DRV INIT */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_RESET);
+  HAL_Delay(2000); // 1000 ms delay
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET); // start with CS line high for DRV
+  init_DRV(&foc);
+
+  /* PWM Config — DRV init is complete; start TIM1 at zero duty cycle.
+   * Gate driver is now enabled, but zero CCR keeps all INH at safe state. */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
   TIM1->CCR1 = 0;
   TIM1->CCR2 = 0;
   TIM1->CCR3 = 0;
-
-  /* ADC Config — arm ADC1 (master, TRIPLEMODE_REGSIMULT) for hardware triggering.
-   * TIM1 TRGO fires a conversion every PWM period; no further HAL_ADC_Start needed. */
-  HAL_ADC_Start(&hadc1);
-
-  /* DRV INIT */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, GPIO_PIN_RESET);
-  HAL_Delay(2000); // 1000 ms delay
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET); // start with CS line high for DRV
-  init_DRV(&foc);
 
   /* Debug Pin */
   //HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_5);
