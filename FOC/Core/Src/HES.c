@@ -96,11 +96,11 @@ void sample_HES(foc_t *foc,calibration_t *cal,hes_t *hes)
 
 	// Mechanical Angular Velocity
 	// Original: windowed endpoint difference (kept for easy revert)
-	//foc->theta_dot_mech = (foc->theta_mech_multiturn[0] - foc->theta_mech_multiturn[N_POS_SAMPLES-1])
-	//                      / (DT * (float)(N_POS_SAMPLES - 1));
+	foc->theta_dot_mech = (foc->theta_mech_multiturn[0] - foc->theta_mech_multiturn[N_POS_SAMPLES-1])/ (2.0f*DT * (float)(N_POS_SAMPLES - 1));
 
 	// Least-squares linear fit over all N_POS_SAMPLES — uses all samples,
 	// not just endpoints, for better noise rejection at the same window width.
+	/*
 	float sum_x  = 0.0f;
 	float sum_ix = 0.0f;
 	for (int i = 0; i < N_POS_SAMPLES; i++) {
@@ -114,6 +114,7 @@ void sample_HES(foc_t *foc,calibration_t *cal,hes_t *hes)
 	velocity_filtered   = VEL_FILTER_ALPHA * velocity_raw
 	                    + (1.0f - VEL_FILTER_ALPHA) * velocity_filtered;
 	foc->theta_dot_mech = velocity_filtered;
+	*/
 
 #if DEBUG_SCOPE
 	HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
