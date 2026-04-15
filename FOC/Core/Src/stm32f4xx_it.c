@@ -265,6 +265,7 @@ void TIM1_UP_TIM10_IRQHandler(void)
 
   /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 0 */
 
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 4095);
 	/*
 	static uint8_t toggle = 0;
 
@@ -280,6 +281,7 @@ void TIM1_UP_TIM10_IRQHandler(void)
 	}
 	*/
 
+
 	read_ADC(&foc);        // reads result of previous tick's hardware-triggered conversion
 	sample_HES(&foc, &cal, &hes);
 
@@ -291,8 +293,11 @@ void TIM1_UP_TIM10_IRQHandler(void)
 			break;
 
 		case MODE_POSITION:
+			/* fall through */
 		case MODE_SPEED:
+			/* fall through */
 		case MODE_CURRENT:
+			/* fall through */
 		case MODE_TORQUE:
 			// Outer loop (torque/position/speed) runs at TORQUE_LOOP_HZ (1 kHz)
 			if(foc.torque_control_counter > TORQUE_DIVIDER)
@@ -331,6 +336,7 @@ void TIM1_UP_TIM10_IRQHandler(void)
 		default:
 			; // do nothing
 	}
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
 
   /* USER CODE END TIM1_UP_TIM10_IRQn 0 */
   HAL_TIM_IRQHandler(&htim1);
