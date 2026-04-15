@@ -109,16 +109,16 @@
 #define PI 3.14159265359f
 #define RADS_PER_COUNTS  0.000383495197f //
 
-// Least-squares velocity estimator constants (N_POS_SAMPLES = 20)
-// sum_i  = N*(N-1)/2          = 190
-// sum_i2 = N*(N-1)*(2N-1)/6  = 2470
-// denom  = N*sum_i2 - sum_i^2 = 13300
-#define LS_SUM_I      190.0f
-#define LS_DENOM_INV  (1.0f / (13300.0f * DT))
-
-// IIR low-pass filter on velocity: tau ≈ DT / ALPHA
-// 0.05 → ~0.5 ms time constant at 40 kHz; reduce for smoother (more lag)
-#define VEL_FILTER_ALPHA 0.05f
+// Alpha-beta (g-h) velocity filter
+// Predict: x_pred = x_est + DT * v_est
+// Update:  x_est  = x_pred + ALPHA_AB * r
+//          v_est += (BETA_AB / DT) * r       where r = measurement - x_pred
+// Critical-damping relationship: BETA_AB = ALPHA_AB^2 / (2 - ALPHA_AB)
+// ALPHA_AB=0.05 → BETA_AB≈0.00128 (critical);  0.001 is slightly under-damped.
+// Velocity time constant τ ≈ ALPHA_AB * DT / BETA_AB (≈ 1.25 ms at these values).
+// Increase ALPHA_AB / BETA_AB for faster response; decrease for more smoothing.
+#define ALPHA_AB  0.05f
+#define BETA_AB   0.001f
 
 // Calibration parameters
 #define W_CAL 20.0f // calibration rotation speed (rad/sec)

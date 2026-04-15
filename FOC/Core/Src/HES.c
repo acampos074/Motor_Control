@@ -43,21 +43,12 @@ void warmup_HES(void)
 
 void sample_HES(foc_t *foc,calibration_t *cal,hes_t *hes)
 {
-#if DEBUG_SCOPE
-	HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 4094);
-#endif
-	// Shift previous samples
+	// Capture reset state before the turns-init block can modify first_sample
+	uint8_t was_uninit = !foc->first_sample;
+
 	foc->theta_mech_old = foc->theta_mech;
-	for(int i = N_POS_SAMPLES-1; i > 0; i--)
-	{
-		foc->theta_mech_multiturn[i] = foc->theta_mech_multiturn[i-1];
-	}
-#if DEBUG_SCOPE
-	HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
-#endif
 
 	foc->theta_mech_raw = hes->position_raw;
-
 
 	// Mechanical Angle
 	foc->theta_mech = (float)(foc->theta_mech_raw - foc->mech_offset)/(ENC_COUNTS);
@@ -70,7 +61,6 @@ void sample_HES(foc_t *foc,calibration_t *cal,hes_t *hes)
 	hes->int_angle = (int)foc->theta_elec;
 	foc->theta_elec = TWO_PI*(foc->theta_elec - (float)hes->int_angle);
 	foc->theta_elec = foc->theta_elec < 0 ? foc->theta_elec + TWO_PI : foc->theta_elec;
-
 
 	// Sensor rollover
 	int rollover = 0;
@@ -94,27 +84,23 @@ void sample_HES(foc_t *foc,calibration_t *cal,hes_t *hes)
 	// Multi-turn position
 	foc->theta_mech_multiturn[0] = foc->theta_mech + TWO_PI*(float)foc->turns;
 
-	// Mechanical Angular Velocity
-	// Original: windowed endpoint difference (kept for easy revert)
-	foc->theta_dot_mech = (foc->theta_mech_multiturn[0] - foc->theta_mech_multiturn[N_POS_SAMPLES-1])/ (2.0f*DT * (float)(N_POS_SAMPLES - 1));
+	// Alpha-beta (g-h) velocity filter — tune ALPHA_AB / BETA_AB in FOC.h
+	// Predict: x_pred = ab_pos + DT * ab_vel
+	// Update:  ab_pos  = x_pred + ALPHA_AB * r
+	//          ab_vel += (BETA_AB / DT) * r       r = measurement - x_pred
+	static float ab_pos = 0.0f;
+	static float ab_vel = 0.0f;
 
-	// Least-squares linear fit over all N_POS_SAMPLES — uses all samples,
-	// not just endpoints, for better noise rejection at the same window width.
-	/*
-	float sum_x  = 0.0f;
-	float sum_ix = 0.0f;
-	for (int i = 0; i < N_POS_SAMPLES; i++) {
-		sum_x  += foc->theta_mech_multiturn[i];
-		sum_ix += (float)i * foc->theta_mech_multiturn[i];
+	if (was_uninit) {
+		ab_pos = foc->theta_mech_multiturn[0];
+		ab_vel = 0.0f;
+	} else {
+		float x_pred = ab_pos + DT * ab_vel;
+		float r      = foc->theta_mech_multiturn[0] - x_pred;
+		ab_pos       = x_pred + ALPHA_AB * r;
+		ab_vel      += (BETA_AB / DT) * r;
 	}
-	float velocity_raw = -((float)N_POS_SAMPLES * sum_ix - LS_SUM_I * sum_x) * LS_DENOM_INV;
-
-	// IIR low-pass filter on top — tune VEL_FILTER_ALPHA in FOC.h
-	static float velocity_filtered = 0.0f;
-	velocity_filtered   = VEL_FILTER_ALPHA * velocity_raw
-	                    + (1.0f - VEL_FILTER_ALPHA) * velocity_filtered;
-	foc->theta_dot_mech = velocity_filtered;
-	*/
+	foc->theta_dot_mech = ab_vel;
 
 #if DEBUG_SCOPE
 	HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
