@@ -16,14 +16,15 @@
 // ── public state ──────────────────────────────────────────────────────────
 float            sysid_vel_buf[SYSID_N_SAMPLES];
 float            sysid_vel_ss  = 0.0f;
+float            sysid_iq_ss   = 0.0f;
 volatile uint8_t sysid_done    = 0;
 volatile uint8_t sysid_aborted = 0;
 
 // ── private state (reset by sysid_reset) ─────────────────────────────────
 static uint8_t  sysid_phase   = 0;
 static uint16_t stable_count  = 0;
-static float    vel_prev      = 0.0f;
-static float    ss_sum        = 0.0f;
+static float    ss_vel_sum    = 0.0f;
+static float    ss_iq_sum     = 0.0f;
 static uint16_t ss_count      = 0;
 static uint16_t sysid_idx     = 0;
 
@@ -31,11 +32,12 @@ void sysid_reset(foc_t *foc)
 {
     sysid_phase   = 0;
     stable_count  = 0;
-    vel_prev      = 0.0f;
-    ss_sum        = 0.0f;
+    ss_vel_sum    = 0.0f;
+    ss_iq_sum     = 0.0f;
     ss_count      = 0;
     sysid_idx     = 0;
     sysid_vel_ss  = 0.0f;
+    sysid_iq_ss   = 0.0f;
     sysid_done    = 0;
     sysid_aborted = 0;
     foc->pi.iq_ref       = 0.0f;
@@ -46,7 +48,7 @@ void sysid_reset(foc_t *foc)
 
 void sysid_step(foc_t *foc)
 {
-    // velocity safety cutoff — abort on any phase if motor spins too fast
+    // hard safety cutoff — abort on any phase if motor spins too fast
     if (fabsf(foc->theta_dot_mech) > SYSID_VEL_LIMIT) {
         foc->pi.iq_ref       = 0.0f;
         foc->pi.id_ref       = 0.0f;
@@ -55,45 +57,65 @@ void sysid_step(foc_t *foc)
         foc->mode            = MODE_IDLE;
         set_zero_DC();
         sysid_aborted = 1;
-        sysid_done    = 1;  // trigger print path
+        sysid_done    = 1;
         return;
     }
 
     switch (sysid_phase)
     {
-        case 0: // ── spin-up: hold iq until velocity stabilises ──────────
-            foc->pi.iq_ref = SYSID_IQ;
+        case 0: // ── spin-up: velocity P controller → SYSID_VEL_TARGET ────
+        {
+            float vel_error = SYSID_VEL_TARGET - foc->theta_dot_mech;
+            float iq_cmd    = SYSID_KV * vel_error;
+
+            // saturate current command
+            if      (iq_cmd >  SYSID_IQ_MAX) iq_cmd =  SYSID_IQ_MAX;
+            else if (iq_cmd < -SYSID_IQ_MAX) iq_cmd = -SYSID_IQ_MAX;
+
+            foc->pi.iq_ref = iq_cmd;
             foc->pi.id_ref = 0.0f;
 
-            // print diagnostics every 100 ms (every 100 1-kHz ticks)
-            if (stable_count % 100 == 0) {
-                dbg_log("[sysID] iq_ref:%.3f iq:%.3f vq:%.3f vel:%.3f\r\n",
-                        foc->pi.iq_ref, foc->i_q, foc->pi.vq_cmd, foc->theta_dot_mech);
-            }
-
-            if (fabsf(foc->theta_dot_mech - vel_prev) < SYSID_VEL_STABLE_THRESH) {
+            // declare steady state when omega is within band of target
+            if (fabsf(vel_error) < SYSID_VEL_STABLE_THRESH) {
                 stable_count++;
             } else {
                 stable_count = 0;
             }
-            vel_prev = foc->theta_dot_mech;
+
+            // print diagnostics every 100 ms
+            if (stable_count % 100 == 0) {
+                dbg_log("[sysID p0] iq_ref:%.3f iq:%.3f vel:%.2f stable:%u\r\n",
+                        foc->pi.iq_ref, foc->i_q, foc->theta_dot_mech, stable_count);
+            }
 
             if (stable_count >= SYSID_STABLE_COUNT) {
-                ss_sum      = 0.0f;
+                ss_vel_sum  = 0.0f;
+                ss_iq_sum   = 0.0f;
                 ss_count    = 0;
                 sysid_phase = 1;
             }
             break;
+        }
 
-        case 1: // ── record steady-state velocity ─────────────────────────
-            foc->pi.iq_ref = SYSID_IQ;
+        case 1: // ── record steady-state iq and omega ─────────────────────
+        {
+            float vel_error = SYSID_VEL_TARGET - foc->theta_dot_mech;
+            float iq_cmd    = SYSID_KV * vel_error;
+            if      (iq_cmd >  SYSID_IQ_MAX) iq_cmd =  SYSID_IQ_MAX;
+            else if (iq_cmd < -SYSID_IQ_MAX) iq_cmd = -SYSID_IQ_MAX;
+
+            foc->pi.iq_ref = iq_cmd;
             foc->pi.id_ref = 0.0f;
-            ss_sum += foc->theta_dot_mech;
+
+            ss_vel_sum += foc->theta_dot_mech;
+            ss_iq_sum  += foc->i_q;
             ss_count++;
 
             if (ss_count >= SYSID_SS_COUNT) {
-                sysid_vel_ss = ss_sum / (float)SYSID_SS_COUNT;
-                // zero integrators so PI starts coast-down from a clean state
+                sysid_vel_ss = ss_vel_sum / (float)SYSID_SS_COUNT;
+                sysid_iq_ss  = ss_iq_sum  / (float)SYSID_SS_COUNT;
+
+                // zero integrators before coast-down so PI starts clean
                 foc->pi.Sum_iq_error = 0.0f;
                 foc->pi.Sum_id_error = 0.0f;
                 foc->pi.iq_ref = 0.0f;
@@ -102,6 +124,7 @@ void sysid_step(foc_t *foc)
                 sysid_phase = 2;
             }
             break;
+        }
 
         case 2: // ── coast-down: log velocity decay ───────────────────────
             foc->pi.iq_ref = 0.0f;
@@ -129,21 +152,22 @@ void sysid_print_if_done(void)
 
     if (sysid_aborted) {
         printf("\r\n[SysID] ABORTED: |omega| exceeded %.1f rad/s limit. Motor stopped.\r\n"
-               "        Reduce SYSID_IQ or check for runaway condition.\r\n",
+               "        Lower SYSID_VEL_TARGET or check for runaway condition.\r\n",
                SYSID_VEL_LIMIT);
         sysid_done    = 0;
         sysid_aborted = 0;
         return;
     }
 
-    if (sysid_vel_ss < 0.05f) {
-        printf("\r\n[SysID] WARNING: vel_ss = %.4f rad/s — motor may not have moved.\r\n"
-               "        Try increasing SYSID_IQ above stiction torque.\r\n",
+    if (sysid_vel_ss < 0.5f) {
+        printf("\r\n[SysID] WARNING: vel_ss = %.4f rad/s — motor may not have reached target.\r\n"
+               "        Check SYSID_VEL_TARGET and SYSID_IQ_MAX.\r\n",
                sysid_vel_ss);
     } else {
-        float B = KT * SYSID_IQ / sysid_vel_ss;
+        float B = KT * sysid_iq_ss / sysid_vel_ss;
         printf("\r\n--- Coast-down SysID ---\r\n");
         printf("vel_ss : %.4f rad/s\r\n", sysid_vel_ss);
+        printf("iq_ss  : %.4f A\r\n",     sysid_iq_ss);
         printf("B      : %.6f Nm/(rad/s)\r\n", B);
         printf("\r\nt_ms,vel_rad_s\r\n");
         for (int i = 0; i < SYSID_N_SAMPLES; i++) {
