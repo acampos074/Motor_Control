@@ -202,8 +202,9 @@ void commutate(foc_t *foc,float theta_elec)
 	// In open-loop modes (CALIBRATION, OPEN_LOOP_TEST, SYSTEM_ID, VOLTAGE_FOC) the
 	// voltage commands are set directly, so integrating the current error would cause
 	// wind-up that produces a current spike on the next transition to closed-loop control.
-	if(foc->mode == MODE_CURRENT  || foc->mode == MODE_SPEED ||
-	   foc->mode == MODE_POSITION || foc->mode == MODE_TORQUE)
+	if(foc->mode == MODE_CURRENT        || foc->mode == MODE_SPEED    ||
+	   foc->mode == MODE_POSITION       || foc->mode == MODE_TORQUE   ||
+	   foc->mode == MODE_SYSID_COASTDOWN)
 	{
 		foc->pi.Sum_id_error += pdGain*idGain*id_error;
 		foc->pi.Sum_id_error = fmaxf(fminf(foc->pi.Sum_id_error, foc->v_max), -foc->v_max); // saturate integrator
