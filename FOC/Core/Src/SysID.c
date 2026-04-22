@@ -9,6 +9,7 @@
 
 #include "main.h"   // must come first — provides HAL types needed by FOC.h
 #include "SysID.h"
+#include "DebugLog.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -63,6 +64,12 @@ void sysid_step(foc_t *foc)
         case 0: // ── spin-up: hold iq until velocity stabilises ──────────
             foc->pi.iq_ref = SYSID_IQ;
             foc->pi.id_ref = 0.0f;
+
+            // print diagnostics every 100 ms (every 100 1-kHz ticks)
+            if (stable_count % 100 == 0) {
+                dbg_log("[sysID] iq_ref:%.3f iq:%.3f vq:%.3f vel:%.3f\r\n",
+                        foc->pi.iq_ref, foc->i_q, foc->pi.vq_cmd, foc->theta_dot_mech);
+            }
 
             if (fabsf(foc->theta_dot_mech - vel_prev) < SYSID_VEL_STABLE_THRESH) {
                 stable_count++;
