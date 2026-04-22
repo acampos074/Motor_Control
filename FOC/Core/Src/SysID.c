@@ -7,8 +7,8 @@
  * current PI stays active and iq tracks the commanded reference cleanly.
  */
 
+#include "main.h"   // must come first — provides HAL types needed by FOC.h
 #include "SysID.h"
-#include "FOC.h"
 #include <math.h>
 #include <stdio.h>
 
