@@ -221,7 +221,7 @@ ES_Event RunFSM( ES_Event ThisEvent )
   		        	foc.mode = MODE_VOLTAGE_FOC;
   		        }
   		        else if( 'd' == ThisEvent.EventParam ){
-  		        	printf("\r\nCoast-down sysID starting (target=%.1f rad/s)...\r\n", SYSID_VEL_TARGET);
+  		        	printf("\r\nCoast-down sysID starting (Vq=%.1f V, spinup=%u ms)...\r\n", (double)SYSID_VQ, SYSID_SPINUP_COUNT);
   		        	sysid_reset(&foc);
   		        	foc.mode = MODE_SYSID_COASTDOWN;
   		        	CurrentState = CoastDownID;

@@ -343,7 +343,7 @@ void TIM1_UP_TIM10_IRQHandler(void)
 				foc.torque_control_counter = 0;
 			}
 			foc.torque_control_counter++;
-			commutate(&foc, foc.theta_elec);
+			sysid_commutate(&foc);
 			break;
 
 		case MODE_IDLE:
