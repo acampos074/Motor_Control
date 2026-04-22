@@ -339,7 +339,8 @@ void print_flags(foc_t *foc)
 	const char *mode_names[] = {
 		"MODE_IDLE", "MODE_CALIBRATION", "MODE_OPEN_LOOP_TEST",
 		"MODE_SYSTEM_ID", "MODE_VOLTAGE_FOC", "MODE_CURRENT",
-		"MODE_SPEED", "MODE_POSITION", "MODE_TORQUE"
+		"MODE_SPEED", "MODE_POSITION", "MODE_TORQUE",
+		"MODE_SYSID_COASTDOWN"
 	};
 	printf("mode: %s", mode_names[foc->mode]);
 	printf("\r\n");

@@ -163,6 +163,7 @@ typedef enum {
     MODE_SPEED,               // closed-loop: P speed → iq_ref
     MODE_POSITION,            // closed-loop: PD position → iq_ref
     MODE_TORQUE,              // closed-loop: torque command → iq_ref (1 kHz update)
+    MODE_SYSID_COASTDOWN,     // system ID: spin-up → steady-state → coast-down log
 } control_mode_t;
 
 // PI current controller state — integrators, references, voltage commands, ADC data

@@ -28,6 +28,7 @@
 #include "FOC.h"
 #include "Calibration.h"
 #include "DebugLog.h"
+#include "SysID.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -335,6 +336,16 @@ void TIM1_UP_TIM10_IRQHandler(void)
 				foc.i_a, foc.i_b, foc.i_c, foc.v_u, foc.v_v, foc.v_w, foc.i_d, foc.i_q);
 			break;
 
+		case MODE_SYSID_COASTDOWN:
+			if (foc.torque_control_counter > TORQUE_DIVIDER)
+			{
+				sysid_step(&foc);
+				foc.torque_control_counter = 0;
+			}
+			foc.torque_control_counter++;
+			commutate(&foc, foc.theta_elec);
+			break;
+
 		case MODE_IDLE:
 		default:
 			; // do nothing
@@ -373,7 +384,8 @@ bool _HW_Process_Pending_Ints( void )
       ES_Timer_Tick_Resp();
       TickCount--;
    }
-   dbg_flush(); /* drain debug ring buffer — safe here, this runs in main context */
+   dbg_flush();            // drain debug ring buffer
+   sysid_print_if_done(); // print coast-down results when ISR signals completion
    return true; // always return true to allow loop test in ES_Run to proceed
 }
 /* USER CODE END 1 */

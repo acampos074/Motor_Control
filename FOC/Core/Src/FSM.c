@@ -31,6 +31,7 @@
 #include "DRV.h"
 #include "HES.h"
 #include "Calibration.h"
+#include "SysID.h"
 /*---------------------------- Module Functions ---------------------------*/
 
 /*---------------------------- Module Variables ---------------------------*/
@@ -168,6 +169,12 @@ ES_Event RunFSM( ES_Event ThisEvent )
   			CurrentState = Waiting4UserInput;
   		  }
   		  break;
+  	  case CoastDownID :
+  		  if(foc.mode == MODE_IDLE)
+  		  {
+  			CurrentState = Waiting4UserInput;
+  		  }
+  		  break;
   	  case Waiting4UserInput : // if current state is waiting for user input
   		  switch ( ThisEvent.EventType )
   		  {
@@ -217,6 +224,12 @@ ES_Event RunFSM( ES_Event ThisEvent )
   		        }
   		        else if( 'f' == ThisEvent.EventParam ){
   		        	foc.mode = MODE_VOLTAGE_FOC;
+  		        }
+  		        else if( 'd' == ThisEvent.EventParam ){
+  		        	printf("\r\nCoast-down sysID starting (iq=%.3fA)...\r\n", SYSID_IQ);
+  		        	sysid_reset(&foc);
+  		        	foc.mode = MODE_SYSID_COASTDOWN;
+  		        	CurrentState = CoastDownID;
   		        }
   		        else if( 'q' == ThisEvent.EventParam ){
   		        	Print_Serial_Commands();
@@ -310,7 +323,8 @@ void Print_Serial_Commands(void)
 	  printf("Press 'i' System ID \n\r");
 	  printf("Press 'm' Turn ON the Position PI Controller \n\r");
 	  printf("Press 'w' Turn ON the Speed PI Controller \n\r");
-	  printf("Press 'o' Turn OFF the PI Controller \n\r");
+	  printf("Press 'd' Coast-down sysID (estimates damping B) \n\r");
+  printf("Press 'o' Turn OFF the PI Controller \n\r");
 	  printf("Press 's' Query current state \n\r");
 	  printf("\n\r\n");
 }

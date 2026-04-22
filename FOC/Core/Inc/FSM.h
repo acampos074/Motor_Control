@@ -12,7 +12,7 @@
 #include "ES_Types.h"
 
 // State definitions for the query function
-typedef enum { InitPState, CalibratingHES, OpenLoopTest,SystemID, Waiting4UserInput } TemplateState_t ;
+typedef enum { InitPState, CalibratingHES, OpenLoopTest, SystemID, CoastDownID, Waiting4UserInput } TemplateState_t ;
 
 // Public Function Prototypes
 
