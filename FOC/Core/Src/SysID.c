@@ -14,8 +14,9 @@
 
 // ── public state ──────────────────────────────────────────────────────────
 float            sysid_vel_buf[SYSID_N_SAMPLES];
-float            sysid_vel_ss = 0.0f;
-volatile uint8_t sysid_done   = 0;
+float            sysid_vel_ss  = 0.0f;
+volatile uint8_t sysid_done    = 0;
+volatile uint8_t sysid_aborted = 0;
 
 // ── private state (reset by sysid_reset) ─────────────────────────────────
 static uint8_t  sysid_phase   = 0;
@@ -35,6 +36,7 @@ void sysid_reset(foc_t *foc)
     sysid_idx     = 0;
     sysid_vel_ss  = 0.0f;
     sysid_done    = 0;
+    sysid_aborted = 0;
     foc->pi.iq_ref       = 0.0f;
     foc->pi.id_ref       = 0.0f;
     foc->pi.Sum_iq_error = 0.0f;
@@ -43,6 +45,19 @@ void sysid_reset(foc_t *foc)
 
 void sysid_step(foc_t *foc)
 {
+    // velocity safety cutoff — abort on any phase if motor spins too fast
+    if (fabsf(foc->theta_dot_mech) > SYSID_VEL_LIMIT) {
+        foc->pi.iq_ref       = 0.0f;
+        foc->pi.id_ref       = 0.0f;
+        foc->pi.Sum_iq_error = 0.0f;
+        foc->pi.Sum_id_error = 0.0f;
+        foc->mode            = MODE_IDLE;
+        set_zero_DC();
+        sysid_aborted = 1;
+        sysid_done    = 1;  // trigger print path
+        return;
+    }
+
     switch (sysid_phase)
     {
         case 0: // ── spin-up: hold iq until velocity stabilises ──────────
@@ -104,6 +119,15 @@ void sysid_step(foc_t *foc)
 void sysid_print_if_done(void)
 {
     if (!sysid_done) return;
+
+    if (sysid_aborted) {
+        printf("\r\n[SysID] ABORTED: |omega| exceeded %.1f rad/s limit. Motor stopped.\r\n"
+               "        Reduce SYSID_IQ or check for runaway condition.\r\n",
+               SYSID_VEL_LIMIT);
+        sysid_done    = 0;
+        sysid_aborted = 0;
+        return;
+    }
 
     if (sysid_vel_ss < 0.05f) {
         printf("\r\n[SysID] WARNING: vel_ss = %.4f rad/s — motor may not have moved.\r\n"

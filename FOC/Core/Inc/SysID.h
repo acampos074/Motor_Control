@@ -18,15 +18,17 @@
 
 // ── tuneable parameters ────────────────────────────────────────────────────
 #define SYSID_N_SAMPLES         2000    // buffer length: 2 s at 1 kHz
-#define SYSID_IQ                0.01f   // spin-up iq command [A]
+#define SYSID_IQ                0.1f    // spin-up iq command [A]
 #define SYSID_VEL_STABLE_THRESH 0.05f   // |Δω| threshold for stability [rad/s]
 #define SYSID_STABLE_COUNT      300     // consecutive stable 1-kHz ticks (= 300 ms)
 #define SYSID_SS_COUNT          100     // averaging window for vel_ss (= 100 ms)
+#define SYSID_VEL_LIMIT         50.0f   // abort if |omega| exceeds this [rad/s]
 // ──────────────────────────────────────────────────────────────────────────
 
-extern float           sysid_vel_buf[SYSID_N_SAMPLES]; // coast-down velocity log [rad/s]
-extern float           sysid_vel_ss;                   // steady-state velocity   [rad/s]
-extern volatile uint8_t sysid_done;                    // set by ISR when buffer full
+extern float            sysid_vel_buf[SYSID_N_SAMPLES]; // coast-down velocity log [rad/s]
+extern float            sysid_vel_ss;                   // steady-state velocity   [rad/s]
+extern volatile uint8_t sysid_done;                     // set by ISR when buffer full
+extern volatile uint8_t sysid_aborted;                  // set by ISR on velocity limit trip
 
 void sysid_reset(foc_t *foc);  // call before entering MODE_SYSID_COASTDOWN
 void sysid_step(foc_t *foc);   // call at 1 kHz from ISR (TORQUE_DIVIDER gate)
