@@ -152,26 +152,21 @@ ES_Event RunFSM( ES_Event ThisEvent )
   	         }
   	         break;
   	  case CalibratingHES :
-  		  if(foc.mode == MODE_IDLE)
-  		  {
-  			CurrentState = Waiting4UserInput;
-  		  }
-  		  break;
+  	  /* fall through */
   	  case OpenLoopTest :
-  		  if(foc.mode == MODE_IDLE)
-  		  {
-  			CurrentState = Waiting4UserInput;
-  		  }
-  		  break;
+  	  /* fall through */
   	  case SystemID :
-  		  if(foc.mode == MODE_IDLE)
-  		  {
-  			CurrentState = Waiting4UserInput;
-  		  }
-  		  break;
+  	  /* fall through */
   	  case CoastDownID :
   		  if(foc.mode == MODE_IDLE)
   		  {
+  			CurrentState = Waiting4UserInput;
+  		  }
+  		  if(ThisEvent.EventType == ES_NEW_KEY && 'o' == ThisEvent.EventParam)
+  		  {
+  			printf("\rController OFF\r\n");
+  			foc.mode = MODE_IDLE;
+  			set_zero_DC();
   			CurrentState = Waiting4UserInput;
   		  }
   		  break;
