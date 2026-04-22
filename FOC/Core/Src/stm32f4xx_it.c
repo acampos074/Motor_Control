@@ -281,10 +281,13 @@ void TIM1_UP_TIM10_IRQHandler(void)
 	}
 	*/
 
-
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 4095);
 	read_ADC(&foc);        // reads result of previous tick's hardware-triggered conversion
 	sample_HES(&foc, &cal, &hes);
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
 
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t)((foc.i_a+1.0f)*2047.5f));
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, (uint16_t)((foc.i_b+1.0f)*2047.5f));
 	// Dispatch based on active control mode
 	switch(foc.mode)
 	{
@@ -336,6 +339,8 @@ void TIM1_UP_TIM10_IRQHandler(void)
 		default:
 			; // do nothing
 	}
+	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
+
 	//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
 
   /* USER CODE END TIM1_UP_TIM10_IRQn 0 */

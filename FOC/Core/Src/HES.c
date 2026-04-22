@@ -101,6 +101,7 @@ void sample_HES(foc_t *foc,calibration_t *cal,hes_t *hes)
 		ab_vel      += (BETA_AB / DT) * r;
 	}
 	foc->theta_dot_mech = ab_vel;
+	//foc->theta_dot_mech = (foc->theta_mech_multiturn[0] - foc->theta_mech_multiturn[N_POS_SAMPLES-1])/(2.0*DT*(float)(N_POS_SAMPLES-1));
 
 #if DEBUG_SCOPE
 	HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);

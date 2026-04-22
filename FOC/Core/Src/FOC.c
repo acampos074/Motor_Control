@@ -105,12 +105,16 @@ void set_zero_DC(void)
 	TIM1->CCR1 = 0; // C
 }
 
-/* Read last cycle's ADC result (already in DR), then kick off the next conversion.
+/* Kick off next conversion first (locks sample to PWM bottom = counter 0 = ISR entry),
+ * then read the previous tick's result from the DR — already populated, no race.
  * STM32F446 regular channels cannot use TIM1 TRGO — software trigger only.
- * Sequence: ISR fires → read previous DR → SWSTART new conversion → compute.
- * The new conversion (~1 µs) completes long before the next ISR (25 µs). */
+ * Sequence: ISR fires → SWSTART → read old DR → compute. New result ready in ~1 µs,
+ * well before the next ISR (25 µs). */
 void read_ADC(foc_t *foc)
 {
+	// Trigger next conversion immediately at ISR entry (PWM triangle bottom)
+	ADC1->CR2 |= ADC_CR2_SWSTART;
+
 	if (foc->phase_order_flag == 0)
 	{
 		foc->pi.adc2_ia_raw = HAL_ADC_GetValue(&hadc2); // i_a
@@ -128,10 +132,6 @@ void read_ADC(foc_t *foc)
 	foc->i_a = AMPS_PER_COUNTS * ((float)foc->pi.adc2_ia_raw - (float)foc->pi.adc2_offset);
 	foc->i_b = AMPS_PER_COUNTS * ((float)foc->pi.adc1_ib_raw - (float)foc->pi.adc1_offset);
 	foc->i_c = -(foc->i_a) - (foc->i_b);
-
-	// Start next conversion — ADC1 is master; in triple-simultaneous mode this
-	// triggers ADC2 and ADC3 at the same instant. Result ready in ~1 µs.
-	ADC1->CR2 |= ADC_CR2_SWSTART;
 }
 
 /* Blocking sample — for use OUTSIDE the ISR only (e.g. zero_current()).
@@ -158,6 +158,14 @@ void commutate(foc_t *foc,float theta_elec)
 	{
 		dq0(foc->theta_elec,foc->i_a,foc->i_b,foc->i_c,&foc->i_d,&foc->i_q);
 	}
+
+	// IIR low-pass on id/iq — filters quantization & switching noise before PI
+	static float id_filt = 0.0f;
+	static float iq_filt = 0.0f;
+	id_filt = IQ_FILTER_ALPHA * foc->i_d + (1.0f - IQ_FILTER_ALPHA) * id_filt;
+	iq_filt = IQ_FILTER_ALPHA * foc->i_q + (1.0f - IQ_FILTER_ALPHA) * iq_filt;
+	foc->i_d = id_filt;
+	foc->i_q = iq_filt;
 
 	// 3. === PI current controller ===
 	float id_error = foc->pi.id_ref - foc->i_d;

@@ -147,6 +147,7 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 	cal->time = 0;
 	cal->loop_count = 0;
   	dbg_log("theta_elec_offset: %d cnts\r\n",foc->elec_offset);
+  	foc->turns = 0;
 
 	//int theta_mech_ref_int = float_to_uint(cal->theta_mech_ref,-TWO_PI,TWO_PI);
 	//CANTxData[0] = 1;    // get 8 MSB

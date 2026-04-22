@@ -48,7 +48,7 @@
  // Current control BW of 125Hz at 40kHz sampling
 // --- Timing: change F_PWM here and Fs/DT/ONE_OVER_DT update automatically ---
 #define F_CLK           180000000UL             // System clock Hz (180 MHz)
-#define F_PWM           40000UL                 // PWM / FOC loop frequency Hz
+#define F_PWM           30000UL                 // PWM / FOC loop frequency Hz
 #define Fs              ((F_CLK / (2 * F_PWM)) - 1) // TIM1 ARR for center-aligned PWM (= 0x08C9 = 2249 at 40kHz)
 #define DT              (1.0f / (float)F_PWM)   // FOC sample period (s)
 #define ONE_OVER_DT     ((float)F_PWM)          // 1 / DT
@@ -57,10 +57,13 @@
 #define TORQUE_LOOP_HZ  1000U                   // 1 kHz outer loop
 #define TORQUE_DIVIDER  (F_PWM / TORQUE_LOOP_HZ) // ISR ticks per outer-loop update (= 40 at 40kHz)
 
+/*
+ // Current control BW of 1kHz gains at 40kHz sampling
 #define pqGain 0.44888f
 #define iqGain 0.015834f
 #define pdGain 0.44888f
 #define idGain 0.015834f
+*/
 
 
 /*
@@ -72,14 +75,14 @@
 #define idGain 0.025215f
 */
 
-/*
+
 // These set works (BW: 30Hz)
-#define Fs 0x0BB8 // (0x0BB8 FOC Sampling Frequency of 30kHz)
+//#define Fs 0x0BB8 // (0x0BB8 = 3000 FOC Sampling Frequency of 30kHz)
 #define pqGain 0.27005f
 #define iqGain 0.021057f
 #define pdGain 0.27005f
 #define idGain 0.021057f
-*/
+
 
 /* This set was last used on 08/01/23
 // These set works (BW: 72Hz)
@@ -108,6 +111,11 @@
 #define TWO_PI 6.28318530718f
 #define PI 3.14159265359f
 #define RADS_PER_COUNTS  0.000383495197f //
+
+// IIR low-pass filter on id/iq after Park transform.
+// α=0.1 @ 30 kHz → fc ≈ 477 Hz, well above the ~125 Hz current-loop BW.
+// Increase α for less lag (less filtering); decrease for more smoothing.
+#define IQ_FILTER_ALPHA 0.1f
 
 // Alpha-beta (g-h) velocity filter
 // Predict: x_pred = x_est + DT * v_est

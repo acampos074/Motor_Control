@@ -218,14 +218,6 @@ ES_Event RunFSM( ES_Event ThisEvent )
   		        else if( 'f' == ThisEvent.EventParam ){
   		        	foc.mode = MODE_VOLTAGE_FOC;
   		        }
-  		        else if( 'd' == ThisEvent.EventParam ){
-  		        	printf("\rNew Set Point \r\n");
-  		        	foc.p_des += 1.0f;
-  		        	if(foc.p_des > TWO_PI)
-  		        	{
-  		        		foc.p_des = (foc.p_des-TWO_PI);
-  		        	}
-  		        }
   		        else if( 'q' == ThisEvent.EventParam ){
   		        	Print_Serial_Commands();
   		        }
