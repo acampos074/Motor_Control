@@ -21,7 +21,7 @@
 #include "tim.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "FOC.h"  // for Fs macro (TIM1 ARR = F_CLK / (2*F_PWM) - 1)
 /* USER CODE END 0 */
 
 TIM_HandleTypeDef htim1;
