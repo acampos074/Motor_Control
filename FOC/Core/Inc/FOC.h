@@ -57,6 +57,10 @@
 #define TORQUE_LOOP_HZ  1000U                   // 1 kHz outer loop
 #define TORQUE_DIVIDER  (F_PWM / TORQUE_LOOP_HZ) // ISR ticks per outer-loop update (= 40 at 40kHz)
 
+#define COGGING_LUT_BITS 9
+#define COGGING_LUT_SIZE 512
+#define ENC_BITS         14
+
 /*
  // Current control BW of 1kHz gains at 40kHz sampling
 #define pqGain 0.44888f
@@ -269,6 +273,8 @@ void read_ADC(foc_t *foc);
 void sample_ADC(foc_t *foc);   // blocking poll — outside ISR only
 void zero_current(foc_t *foc);
 void print_flags(foc_t *foc);
+
+float get_cogging_compensation(uint16_t raw_pos);
 
 
 #endif /* INC_FOC_H_ */

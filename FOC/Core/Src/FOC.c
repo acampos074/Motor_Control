@@ -23,6 +23,75 @@ extern SPI_HandleTypeDef hspi2;
 extern SPI_HandleTypeDef hspi3;
 extern DAC_HandleTypeDef hdac;
 
+// Use int32_t to accommodate larger uNm values
+const int32_t cogging_torque_lut[512] = {
+       -62,    -52,    -43,    -34,    -25,    -17,    -10,     -4,
+         1,      5,      9,     11,     13,     14,     14,     14,
+        13,     11,      9,      7,      4,      0,     -2,     -6,
+       -11,    -15,    -21,    -26,    -32,    -37,    -44,    -50,
+       -56,    -62,    -69,    -75,    -81,    -88,    -94,   -100,
+      -106,   -112,   -118,   -124,   -129,   -133,   -136,   -139,
+      -140,   -139,   -136,   -131,   -124,   -114,   -102,    -87,
+       -70,    -51,    -31,    -11,      8,     28,     45,     60,
+        72,     80,     84,     83,     78,     69,     55,     38,
+        17,     -6,    -31,    -59,    -87,   -115,   -143,   -170,
+      -196,   -221,   -243,   -263,   -280,   -294,   -304,   -311,
+      -314,   -313,   -307,   -297,   -282,   -262,   -238,   -210,
+      -178,   -144,   -107,    -70,    -34,      1,     34,     64,
+        89,    110,    125,    134,    138,    136,    128,    115,
+        98,     77,     52,     24,     -4,    -35,    -66,    -96,
+      -126,   -154,   -180,   -203,   -222,   -237,   -248,   -254,
+      -254,   -249,   -239,   -223,   -202,   -177,   -147,   -114,
+       -78,    -40,     -1,     37,     75,    111,    144,    172,
+       197,    216,    229,    235,    235,    229,    216,    197,
+       172,    143,    108,     71,     31,     -9,    -50,    -89,
+      -127,   -161,   -190,   -215,   -233,   -246,   -251,   -251,
+      -244,   -231,   -212,   -189,   -162,   -133,   -101,    -67,
+       -34,      0,     31,     63,     92,    119,    143,    165,
+       183,    197,    208,    214,    216,    214,    207,    195,
+       178,    157,    133,    105,     75,     43,     11,    -20,
+       -51,    -80,   -105,   -127,   -144,   -157,   -165,   -167,
+      -164,   -156,   -144,   -128,   -108,    -86,    -61,    -34,
+        -7,     20,     47,     74,     99,    122,    144,    163,
+       179,    192,    201,    207,    210,    209,    205,    197,
+       187,    173,    158,    140,    121,    101,     81,     62,
+        43,     25,      9,     -4,    -16,    -26,    -33,    -38,
+       -41,    -41,    -39,    -35,    -28,    -20,    -10,      0,
+        13,     28,     43,     59,     76,     94,    111,    128,
+       144,    160,    175,    188,    201,    212,    222,    231,
+       238,    245,    251,    255,    259,    262,    263,    263,
+       261,    258,    254,    248,    240,    231,    220,    208,
+       194,    180,    164,    148,    132,    115,     99,     83,
+        68,     53,     40,     28,     17,      9,      3,      0,
+        -2,     -1,      3,     10,     20,     32,     48,     66,
+        86,    107,    128,    150,    170,    189,    206,    219,
+       228,    233,    233,    228,    218,    204,    185,    163,
+       137,    109,     79,     48,     16,    -14,    -44,    -73,
+       -99,   -123,   -144,   -160,   -173,   -182,   -186,   -186,
+      -181,   -171,   -156,   -137,   -115,    -89,    -61,    -31,
+         0,     30,     60,     87,    113,    134,    152,    165,
+       174,    177,    175,    169,    157,    140,    119,     95,
+        67,     36,      3,    -30,    -66,   -101,   -135,   -169,
+      -200,   -229,   -255,   -278,   -296,   -311,   -321,   -325,
+      -325,   -320,   -310,   -295,   -275,   -250,   -222,   -190,
+      -156,   -120,    -83,    -46,    -10,     24,     56,     84,
+       109,    128,    142,    150,    152,    148,    137,    120,
+        97,     70,     38,      3,    -33,    -72,   -110,   -147,
+      -182,   -214,   -242,   -265,   -283,   -295,   -302,   -303,
+      -298,   -288,   -273,   -254,   -231,   -204,   -175,   -143,
+      -109,    -74,    -39,     -4,     29,     61,     91,    118,
+       140,    158,    171,    178,    179,    174,    163,    147,
+       125,    100,     70,     39,      6,    -26,    -58,    -88,
+      -115,   -139,   -158,   -172,   -182,   -186,   -186,   -181,
+      -171,   -158,   -141,   -121,    -99,    -76,    -51,    -25,
+         0,     24,     49,     72,     93,    113,    130,    146,
+       158,    168,    175,    179,    179,    177,    172,    164,
+       154,    141,    127,    112,     95,     78,     60,     43,
+        26,      9,     -7,    -23,    -39,    -55,    -71,    -88,
+      -105,   -124,   -143,   -163,   -184,   -206,   -227,   -248
+};
+
+
 void zero_current(foc_t *foc)
 {
     int n = 1000;
@@ -168,8 +237,16 @@ void commutate(foc_t *foc,float theta_elec)
 	foc->i_q = iq_filt;
 
 	// 3. === PI current controller ===
+
+	// 3.1 Calculate compensation in Nm and convert to Amps (I = Torque / Kt)
+	// Note: get_cogging_compensation returns the NEGATIVE of the cogging torque
+	float cogging_comp_amps = get_cogging_compensation(foc->theta_mech) / KT;
+
+	// 3.2 Add to the reference so the PI controller drives the motor to cancel the ripple
+	float iq_error = (foc->pi.iq_ref + cogging_comp_amps) - foc->i_q;
+
 	float id_error = foc->pi.id_ref - foc->i_d;
-	float iq_error = foc->pi.iq_ref - foc->i_q;
+	//float iq_error = foc->pi.iq_ref - foc->i_q;
 
 	// 4. Command voltages — mode selects the voltage source
 	if(foc->mode == MODE_CALIBRATION || foc->mode == MODE_OPEN_LOOP_TEST)
@@ -347,6 +424,26 @@ void print_flags(foc_t *foc)
 	printf("\r\n");
 	printf("phase_order_flag: %d", foc->phase_order_flag);
 	printf("\r\n");
+}
+
+
+float get_cogging_compensation(uint16_t raw_pos) {
+    // 1. Calculate Index and Fraction
+    uint16_t idx0 = (raw_pos >> (ENC_BITS - COGGING_LUT_BITS)) & (COGGING_LUT_SIZE - 1);
+    uint16_t idx1 = (idx0 + 1) & (COGGING_LUT_SIZE - 1);
+
+    // Fraction between samples (0.0 to 1.0)
+    uint16_t frac_raw = raw_pos & 0x1F; // bottom 5 bits (14-9=5)
+    float fraction = (float)frac_raw / 32.0f;
+
+    // 2. Interpolate in uNm
+    float val0 = (float)cogging_torque_lut[idx0];
+    float val1 = (float)cogging_torque_lut[idx1];
+    float interpolated_uNm = val0 + fraction * (val1 - val0);
+
+    // 3. Convert uNm to Nm (divide by 1,000,000)
+    // Negate because we want to subtract the cogging effect
+    return -(interpolated_uNm / 1000000.0f);
 }
 
 

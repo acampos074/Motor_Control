@@ -386,6 +386,7 @@ bool _HW_Process_Pending_Ints( void )
    }
    dbg_flush();            // drain debug ring buffer
    sysid_print_if_done(); // print coast-down results when ISR signals completion
+   cal_print_error_lut(); // print encoder error array when calibration signals completion
    return true; // always return true to allow loop test in ES_Run to proceed
 }
 /* USER CODE END 1 */

@@ -26,6 +26,7 @@ void warmup_HES(void);
 void print_HES(foc_t *foc);
 uint8_t HES_ReadSensorDMA(hes_t *hes);
 void HES_ReadSensorDMA_Complete(hes_t *hes);
+uint16_t compensate_eccentricity(uint16_t position_raw);
 
 
 #endif /* INC_HES_H_ */

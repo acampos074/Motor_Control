@@ -18,11 +18,16 @@
 #include "DRV.h"
 #include "FOC_Math.h"
 #include "Calibration.h"
+#include "EccComp.h"
 #include "DebugLog.h"
 
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 extern DAC_HandleTypeDef hdac;
+
+volatile uint8_t cal_dump_pending = 0;
+
+extern calibration_t cal;
 extern CAN_TxHeaderTypeDef TxMessage;
 extern uint8_t CANTxData[8];
 extern uint32_t TxMailbox;
@@ -76,8 +81,8 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 			sample_HES(foc,cal,hes);
 			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t) ((foc->theta_mech_raw*4095.0f)/16384.0f));
 			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, (uint16_t) ((angle*4095.0f)/16384.0f));
-			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t) ((cal->theta_mech_ref*4095.0f)/TWO_PI));
-			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, (uint16_t) ((foc->theta_mech_raw*4095.0f)/16384.0f));
+			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t) ((cal->theta_mech_ref*4095.0f)/TWO_PI));
+			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, (uint16_t) ((foc->theta_mech_raw*4095.0f)/16384.0f));
 			cal->sample_count++; // revolution counter keeps increasing
 
 		}
@@ -109,8 +114,8 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 			cal->sample_count--; // revolution counter keeps decreasing until it's less than 0
 			//HES_ReadSensorDMA(hes); // !!!!!!!!!!!!!!!!!!! ADDED THIS LINE TO TEST DMA
 			sample_HES(foc,cal,hes);
-			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t) ((cal->theta_mech_ref*4095.0f)/TWO_PI));
-			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, (uint16_t) ((foc->theta_mech_raw*4095.0f)/16384.0f));
+			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, (uint16_t) ((cal->theta_mech_ref*4095.0f)/TWO_PI));
+			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, (uint16_t) ((foc->theta_mech_raw*4095.0f)/16384.0f));
 			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, (uint16_t) ((angle*4095.0f)/16384.0f));
 			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 4094);
 		}
@@ -148,6 +153,8 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 	cal->loop_count = 0;
   	dbg_log("theta_elec_offset: %d cnts\r\n",foc->elec_offset);
   	foc->turns = 0;
+	cal_dump_pending = 1; // signal main context to print error LUT
+	dbg_log("cal_complete\r\n");
 
 	//int theta_mech_ref_int = float_to_uint(cal->theta_mech_ref,-TWO_PI,TWO_PI);
 	//CANTxData[0] = 1;    // get 8 MSB
@@ -155,6 +162,20 @@ void calibrate_HES2(foc_t *foc,calibration_t *cal,float loop_count,hes_t *hes)
 	//CANTxData[2] = theta_mech_ref_int&0xFF;
 	//HAL_CAN_AddTxMessage(&hcan1, &TxMessage, CANTxData, &TxMailbox); // CAN Tx
 
+}
+
+void cal_print_error_lut(void)
+{
+    if (!cal_dump_pending) return;
+    cal_dump_pending = 0;
+
+    printf("idx,error_counts\r\n");
+    for (int i = 0; i < N_CAL; i++) {
+        printf("%d,%d\r\n", i, cal.error_arr[i]);
+    }
+    printf("---end---\r\n");
+
+    //ecc_build_lut(&cal);
 }
 
 void open_loop_test(foc_t *foc,calibration_t *cal,float loop_count)
